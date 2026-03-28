@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Train Connections Map</title>
+    <title>VDV Vlakové linky</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -13,8 +13,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #1a1a1a; }
-        #map { height: 100vh; width: 100vw; }
+        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #1a1a1a; overflow: hidden; }
+
+        /* FIX: 100dvh dynamically adjusts to the mobile browser's address bar popping up/down */
+        #map {
+            height: 100vh; /* Fallback for older browsers */
+            height: 100dvh;
+            width: 100vw;
+        }
 
         /* Modernized Hover Tooltip */
         .leaflet-tooltip {
@@ -95,6 +101,8 @@
             border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
             font-family: 'Inter', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             pointer-events: auto;
+            /* FIX: Prevents mobile scroll from dragging the whole webpage layout */
+            touch-action: pan-y;
         }
         .legend-title {
             font-weight: 700; margin-bottom: 10px; font-size: 13px;
@@ -143,14 +151,22 @@
         .modal-line-btn:active { background: rgba(255,255,255,0.1); }
         .modal-line-btn span.btn-text { font-size: 13px; color: #cbd5e1; font-family: 'Inter', sans-serif;}
 
+        /* --- MOBILE SPECIFIC FIXES --- */
         @media (max-width: 768px) {
             .map-overlay { top: 10px; right: 10px; padding: 12px; max-width: 250px; }
             .map-overlay h1 { font-size: 16px; }
             .map-overlay p { font-size: 11px; }
 
+            /* FIX: Push leaflet controls safely above iOS/Android home bars */
+            .leaflet-bottom.leaflet-left {
+                bottom: env(safe-area-inset-bottom, 10px);
+            }
+            .leaflet-control-container .leaflet-bottom .leaflet-control {
+                margin-bottom: 25px; /* Extra padding guarantees it clears the bottom browser bar */
+            }
+
             .map-legend {
-                margin-bottom: 60px;
-                max-height: 40vh;
+                max-height: 38dvh; /* Ensures the open legend never takes more than ~40% of dynamic screen height */
                 overflow-y: auto;
             }
         }
@@ -274,7 +290,7 @@
             const firstStation = route.waypoints[0];
             const lastStation = route.waypoints[route.waypoints.length - 1];
 
-            // LEGEND LOGIC: Track the max extent of lines, including splits for "changesTo" routes
+            // LEGEND LOGIC: Correctly track the max extent of lines, including splits for "changesTo" routes
             if (route.changeAt && route.changesTo) {
                 const changeIndex = route.waypoints.indexOf(route.changeAt);
                 if (changeIndex !== -1) {
@@ -490,17 +506,17 @@
                 const offset = currentOffset + (segData.thickness / 2);
                 const latlngs = [ stations[segData.nodeA], stations[segData.nodeB] ];
 
-                // 3a. Draw background casing (visual only)
+                // 3a. Draw background casing
                 L.polyline(latlngs, {
                     color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false
                 }).addTo(map);
 
-                // 3b. Draw the actual colored line (visual only)
+                // 3b. Draw the actual colored line
                 L.polyline(latlngs, {
                     color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false
                 }).addTo(map);
 
-                // 3c. Draw invisible interaction layer (Fat Hitbox)
+                // 3c. Draw invisible interaction layer (Fat Hitbox for easy touch/click)
                 const hitBoxWeight = isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
                 const interactionLine = L.polyline(latlngs, {
                     color: '#000000', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset
