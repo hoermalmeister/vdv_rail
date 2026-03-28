@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Train Connections Map</title>
+    <title>VDV Vlakové linky</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -62,7 +62,7 @@
         .dest-arrow { font-size: 9px; color: #64748b; margin-left: 8px; transition: transform 0.2s ease; display: inline-block; }
         .dest-details[open] .dest-arrow { transform: rotate(180deg); }
         .dest-row:hover { background-color: rgba(255, 255, 255, 0.08); }
-        .leaflet-tooltip .dest-arrow { display: none; } /* Hide arrow in hover tooltip */
+        .leaflet-tooltip .dest-arrow { display: none; }
 
         .dest-trains {
             font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3);
@@ -94,12 +94,24 @@
             background: rgba(25, 30, 36, 0.95); color: #f1f5f9; padding: 14px;
             border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
             font-family: 'Inter', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            max-height: 350px; overflow-y: auto; pointer-events: auto;
+            pointer-events: auto;
         }
-        .map-legend::-webkit-scrollbar { width: 6px; }
-        .map-legend::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        .legend-title { font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid #334155; padding-bottom: 6px;}
+        /* New Interactive Legend Title */
+        .legend-title {
+            font-weight: 700; margin-bottom: 10px; font-size: 13px;
+            border-bottom: 1px solid #334155; padding-bottom: 6px;
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            user-select: none; transition: color 0.2s;
+        }
+        .legend-title:hover { color: #38bdf8; }
+        .legend-title.collapsed { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+        .legend-toggle-icon { font-size: 10px; transition: transform 0.2s; margin-left: 12px; color: #94a3b8; }
+        .legend-title.collapsed .legend-toggle-icon { transform: rotate(-90deg); }
+        .legend-content { display: flex; flex-direction: column; }
+        .legend-content.collapsed { display: none; }
+
         .legend-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
+        .legend-row:last-child { margin-bottom: 0; }
         .legend-stops { font-size: 11px; color: #cbd5e1; white-space: nowrap; font-weight: 600;}
 
         /* Mobile Line Chooser Modal */
@@ -149,10 +161,8 @@
     </div>
 
     <script>
-        // Check if device is mobile (for click logic)
         const isMobile = window.innerWidth <= 768 || L.Browser.mobile;
 
-        // --- HELPER FUNCTION: Smart Luminance Checker ---
         function getContrastColor(hexColor) {
             if (!hexColor) return '#ffffff';
             hexColor = hexColor.replace("#", "");
@@ -175,7 +185,6 @@
             maxZoom: 20
         }).addTo(map);
 
-        // --- DATA ---
         const stations = {"Batelov": [49.3175164, 15.3982258], "Brno": [49.1905822, 16.6128025], "Byst\u0159ice": [49.5136908, 16.2469789], "Da\u010dice": [49.0859183, 15.4391956], "Da\u010dice m\u011bsto": [49.0784492, 15.4396906], "Dobron\u00edn": [49.4782714, 15.6417169], "Havl\u00ed\u010dk\u016fv Brod": [49.5986939, 15.5877361], "Hlinsko v \u010cech\u00e1ch": [49.7667542, 15.9017544], "Horn\u00ed Cerekev": [49.3111419, 15.3246822], "Humpolec": [49.5349275, 15.34822], "Jemnice": [49.0160103, 15.5809411], "Jihlava": [49.4147033, 15.5993567], "Jihlava m\u011bsto": [49.4038733, 15.5834283], "Kol\u00edn": [50.0254631, 15.2145328], "Kostelec u Jihlavy": [49.3572922, 15.4822675], "Lede\u010d nad S\u00e1zavou": [49.6979675, 15.2703847], "Moravsk\u00e9 Bud\u011bjovice": [49.0575675, 15.8093778], "Nedv\u011bdice": [49.4544258, 16.3359833], "Nov\u00e9 M\u011bsto na Morav\u011b": [49.5685617, 16.0803489], "N\u00e1m\u011b\u0161\u0165 nad Oslavou": [49.2070197, 16.1475372], "Ok\u0159\u00ed\u0161ky": [49.2479933, 15.7708692], "Pacov": [49.4599036, 15.0171661], "Pelh\u0159imov": [49.4196625, 15.222475], "Sedlejov": [49.2248153, 15.4957056], "Slavonice": [48.9937819, 15.3491383], "Studenec": [49.2225722, 16.0690517], "Sv\u011btl\u00e1 nad S\u00e1zavou": [49.6703339, 15.4171458], "Tel\u010d": [49.1825867, 15.4644803], "Ti\u0161nov": [49.3471183, 16.4182664], "T\u00e1bor": [49.4140969, 14.6771811], "T\u0159eb\u00ed\u010d": [49.2114983, 15.8843594], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed": [49.3456764, 16.021925], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed zast\u00e1vka": [49.3527869, 16.0088786], "Zast\u00e1vka u Brna": [49.1874886, 16.3586636], "Znojmo": [48.8527717, 16.0592767], "Zru\u010d nad S\u00e1zavou": [49.7384872, 15.1040039], "\u010c\u00e1slav": [49.9151992, 15.3946428], "\u017d\u010f\u00e1r nad S\u00e1zavou": [49.5535164, 15.9399528]};
         const routes = [
             {"lineName": "S82", "waypoints": ["Ledeč nad Sázavou", "Zruč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24850", "Os 24885"]},
@@ -255,17 +264,14 @@
             const firstStation = route.waypoints[0];
             const lastStation = route.waypoints[route.waypoints.length - 1];
 
-            // LEGEND LOGIC: Correctly track the max extent of lines, including splits for "changesTo" routes
             if (route.changeAt && route.changesTo) {
                 const changeIndex = route.waypoints.indexOf(route.changeAt);
                 if (changeIndex !== -1) {
-                    // First part: original line name goes from start -> changeAt
                     const part1Len = changeIndex + 1;
                     if (!lineEndpoints[route.lineName] || part1Len > lineEndpoints[route.lineName].length) {
                         lineEndpoints[route.lineName] = { length: part1Len, start: firstStation, end: route.changeAt, color: route.color };
                     }
 
-                    // Second part: changed line name goes from changeAt -> end
                     const part2Len = route.waypoints.length - changeIndex;
                     if (!lineEndpoints[route.changesTo] || part2Len > lineEndpoints[route.changesTo].length) {
                         lineEndpoints[route.changesTo] = { length: part2Len, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
@@ -393,9 +399,18 @@
 
             let buttonsHtml = linesOnSegment.map((seg, idx) => {
                 const textColor = getContrastColor(seg.color);
+
+                let endpointsText = "Zobrazit spojení...";
+                if (lineEndpoints && lineEndpoints[seg.lineName]) {
+                    const data = lineEndpoints[seg.lineName];
+                    const endA = data.start < data.end ? data.start : data.end;
+                    const endB = data.start < data.end ? data.end : data.start;
+                    endpointsText = `${endA} ↔ ${endB}`;
+                }
+
                 return `<button class="modal-line-btn" onclick="showMobileDetails(${idx})">
                             <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
-                            <span class="btn-text">Zobrazit spojení...</span>
+                            <span class="btn-text" style="font-weight: 600;">${endpointsText}</span>
                         </button>`;
             }).join('');
 
@@ -410,7 +425,7 @@
                 </div>
             `;
 
-            window.currentSegmentLinesData = linesOnSegment; // Store for the next screen
+            window.currentSegmentLinesData = linesOnSegment;
             modal.style.display = 'flex';
         }
 
@@ -453,12 +468,10 @@
                 const offset = currentOffset + (segData.thickness / 2);
                 const latlngs = [ stations[segData.nodeA], stations[segData.nodeB] ];
 
-                // Casing
                 L.polyline(latlngs, {
                     color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset
                 }).addTo(map);
 
-                // Line
                 const polyline = L.polyline(latlngs, {
                     color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset
                 }).addTo(map);
@@ -466,14 +479,12 @@
                 const tooltipContent = generateTooltipHtml(segData);
 
                 if (!isMobile) {
-                    // DESKTOP: Hover + Click to Pin
                     polyline.bindTooltip(tooltipContent, { sticky: true });
                     polyline.bindPopup(tooltipContent, { className: 'custom-popup' });
 
                     polyline.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
                     polyline.on('popupclose', function() { this.bindTooltip(tooltipContent, { sticky: true }); });
                 } else {
-                    // MOBILE: Click opens the dialog chooser
                     polyline.on('click', function() {
                         openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
                     });
@@ -523,11 +534,16 @@
         legend.onAdd = function () {
             const div = L.DomUtil.create('div', 'map-legend');
 
-            // Prevent map clicks AND mouse scrolling inside the legend from affecting the map!
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.disableScrollPropagation(div);
 
-            let html = '<div class="legend-title">Linky a konečné stanice</div>';
+            let html = `
+                <div class="legend-title" id="legend-toggle">
+                    <span>Linky a konečné stanice</span>
+                    <span class="legend-toggle-icon">▼</span>
+                </div>
+                <div class="legend-content" id="legend-content">
+            `;
 
             const sortedLines = Object.keys(lineEndpoints).sort();
 
@@ -545,7 +561,19 @@
                     </div>
                 `;
             });
+            html += '</div>';
             div.innerHTML = html;
+
+            // Add toggle functionality after injecting HTML
+            setTimeout(() => {
+                const titleBtn = div.querySelector('#legend-toggle');
+                const contentDiv = div.querySelector('#legend-content');
+                titleBtn.addEventListener('click', () => {
+                    titleBtn.classList.toggle('collapsed');
+                    contentDiv.classList.toggle('collapsed');
+                });
+            }, 0);
+
             return div;
         };
         legend.addTo(map);
