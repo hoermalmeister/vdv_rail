@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDV Vlakové linky</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #1a1a1a; }
+        #map { height: 100vh; width: 100vw; }
+
+        /* Modernized Hover Tooltip */
+        .leaflet-tooltip {
+            background-color: rgba(25, 30, 36, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f1f5f9;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            pointer-events: none;
+        }
+        .leaflet-tooltip::before,
+        .leaflet-tooltip::after {
+            display: none !important;
+        }
+
+        /* CLICK-TO-PIN POPUP (Matches Tooltip Styling) */
+        .custom-popup .leaflet-popup-content-wrapper {
+            background-color: rgba(25, 30, 36, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f1f5f9;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 0;
+        }
+        .custom-popup .leaflet-popup-content {
+            margin: 12px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+            min-width: 260px;
+        }
+        .custom-popup .leaflet-popup-tip-container { display: none !important; }
+        .custom-popup a.leaflet-popup-close-button {
+            color: #94a3b8 !important;
+            top: 10px !important;
+            right: 10px !important;
+            font-size: 16px !important;
+            padding: 0 !important;
+        }
+        .custom-popup a.leaflet-popup-close-button:hover { color: #ffffff !important; }
+
+        /* Internal Content Styling */
+        .tooltip-header {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-right: 16px;
+        }
+
+        /* Line Badges */
+        .line-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 12px;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); /* Gives a slight border for visibility */
+        }
+
+        .tooltip-segment { color: #94a3b8; margin-bottom: 8px; font-size: 12px; }
+        .tooltip-connections { font-weight: 600; color: #e2e8f0; }
+        .tooltip-destinations {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+        }
+
+        /* Dropdown Train Names Styling */
+        .dest-details { margin-top: 2px; }
+        .dest-details summary { list-style: none; outline: none; }
+        .dest-details summary::-webkit-details-marker { display: none; }
+
+        .dest-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        .dest-right { display: flex; align-items: center; }
+        .dest-count { font-weight: 700; color: #38bdf8; margin-left: 12px; }
+
+        .dest-arrow {
+            font-size: 9px;
+            color: #64748b;
+            margin-left: 8px;
+            transition: transform 0.2s ease;
+            display: inline-block;
+        }
+        .dest-details[open] .dest-arrow { transform: rotate(180deg); }
+        .custom-popup .dest-details summary { cursor: pointer; }
+        .custom-popup .dest-row:hover { background-color: rgba(255, 255, 255, 0.08); }
+        .leaflet-tooltip .dest-arrow { display: none; }
+
+        .dest-trains {
+            font-size: 11px;
+            color: #94a3b8;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin: 4px 0 6px 4px;
+            word-wrap: break-word;
+            line-height: 1.5;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Station Tooltip specifically */
+        .station-tooltip {
+            background-color: #ffffff;
+            color: #1e293b;
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: normal;
+            min-width: 60px;
+        }
+
+        .leaflet-marker-pane { z-index: 650; }
+
+        /* Title Box Overlay */
+        .map-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(25, 30, 36, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            max-width: 320px;
+            pointer-events: none;
+        }
+        .map-overlay h1 { margin: 0 0 8px 0; font-size: 18px; letter-spacing: 0.5px; }
+        .map-overlay p { margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="map-overlay">
+        <h1>VDV Vlakové linky</h1>
+        <p>Tloušťka čáry reprezentuje frekvenci linky. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte konkrétní vlaky.</p>
+    </div>
+
+    <script>
+        // --- HELPER FUNCTION: Smart Luminance Checker ---
+        function getContrastColor(hexColor) {
+            if (!hexColor) return '#ffffff';
+            hexColor = hexColor.replace("#", "");
+            if (hexColor.length === 3) {
+                hexColor = hexColor[0] + hexColor[0] + hexColor[1] + hexColor[1] + hexColor[2] + hexColor[2];
+            }
+            if (hexColor.length !== 6) return '#ffffff';
+            const r = parseInt(hexColor.slice(0, 2), 16);
+            const g = parseInt(hexColor.slice(2, 4), 16);
+            const b = parseInt(hexColor.slice(4, 6), 16);
+            const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+            return (yiq >= 140) ? '#1a1a1a' : '#ffffff';
+        }
+
+        const map = L.map('map').setView([49.4, 15.6], 9);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        const stations = {"Batelov": [49.3175164, 15.3982258], "Brno": [49.1905822, 16.6128025], "Byst\u0159ice": [49.5136908, 16.2469789], "Da\u010dice": [49.0859183, 15.4391956], "Da\u010dice m\u011bsto": [49.0784492, 15.4396906], "Dobron\u00edn": [49.4782714, 15.6417169], "Havl\u00ed\u010dk\u016fv Brod": [49.5986939, 15.5877361], "Hlinsko v \u010cech\u00e1ch": [49.7667542, 15.9017544], "Horn\u00ed Cerekev": [49.3111419, 15.3246822], "Humpolec": [49.5349275, 15.34822], "Jemnice": [49.0160103, 15.5809411], "Jihlava": [49.4147033, 15.5993567], "Jihlava m\u011bsto": [49.4038733, 15.5834283], "Kol\u00edn": [50.0254631, 15.2145328], "Kostelec u Jihlavy": [49.3572922, 15.4822675], "Lede\u010d nad S\u00e1zavou": [49.6979675, 15.2703847], "Moravsk\u00e9 Bud\u011bjovice": [49.0575675, 15.8093778], "Nedv\u011bdice": [49.4544258, 16.3359833], "Nov\u00e9 M\u011bsto na Morav\u011b": [49.5685617, 16.0803489], "N\u00e1m\u011b\u0161\u0165 nad Oslavou": [49.2070197, 16.1475372], "Ok\u0159\u00ed\u0161ky": [49.2479933, 15.7708692], "Pacov": [49.4599036, 15.0171661], "Pelh\u0159imov": [49.4196625, 15.222475], "Sedlejov": [49.2248153, 15.4957056], "Slavonice": [48.9937819, 15.3491383], "Studenec": [49.2225722, 16.0690517], "Sv\u011btl\u00e1 nad S\u00e1zavou": [49.6703339, 15.4171458], "Tel\u010d": [49.1825867, 15.4644803], "Ti\u0161nov": [49.3471183, 16.4182664], "T\u00e1bor": [49.4140969, 14.6771811], "T\u0159eb\u00ed\u010d": [49.2114983, 15.8843594], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed": [49.3456764, 16.021925], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed zast\u00e1vka": [49.3527869, 16.0088786], "Zast\u00e1vka u Brna": [49.1874886, 16.3586636], "Znojmo": [48.8527717, 16.0592767], "Zru\u010d nad S\u00e1zavou": [49.7384872, 15.1040039], "\u010c\u00e1slav": [49.9151992, 15.3946428], "\u017d\u010f\u00e1r nad S\u00e1zavou": [49.5535164, 15.9399528]};
+
+        const routes = [
+            {"lineName": "S82", "waypoints": ["Ledeč nad Sázavou", "Zruč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24850", "Os 24885"]},
+            {"lineName": "S82", "waypoints": ["Havlíčkův Brod", "Světlá nad Sázavou", "Ledeč nad Sázavou", "Zruč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24852", "Os 24854", "Os 24858", "Os 24860", "Os 24862", "Os 24864", "Os 24866", "Os 24868", "Os 24870", "Os 24872", "Os 24876", "Os 24878", "Os 24882", "Os 24853", "Os 24855", "Os 24857", "Os 24861", "Os 24863", "Os 24865", "Os 24867", "Os 24869", "Os 24871", "Os 24873", "Os 24875", "Os 24877", "Os 24881", "Os 24883", "Os 24885"]},
+            {"lineName": "S82", "waypoints": ["Havlíčkův Brod", "Světlá nad Sázavou", "Ledeč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24856", "Os 24874", "Os 24880", "Os 24884", "Os 24886", "Os 24851", "Os 24859", "Os 24879", "Os 24887"]},
+            {"lineName": "J2", "waypoints": ["Havlíčkův Brod", "Žďár nad Sázavou", "Nové Město na Moravě"], "color": "#3CB44B", "trainNames": ["Os 8761", "Os 8763", "Os 8781", "Os 8783", "Os 8772"]},
+            {"lineName": "J2", "waypoints": ["Žďár nad Sázavou", "Nové Město na Moravě"], "color": "#3CB44B", "trainNames": ["Os 14921", "Os 14913", "Os 14915", "Os 14923", "Os 14925", "Os 14927", "Os 14910", "Os 14912", "Os 14914", "Os 14916", "Os 14920", "Os 14922", "Os 14911", "Os 14919", "Os 14918"]},
+            {"lineName": "J2", "waypoints": ["Humpolec", "Havlíčkův Brod"], "color": "#3CB44B", "trainNames": ["Os 15955", "Os 15957", "Os 15959", "Os 15961", "Os 15967", "Os 15969", "Os 15971", "Os 15973", "Os 15954", "Os 15956", "Os 15958", "Os 15960", "Os 15966", "Os 15968", "Os 15970", "Os 15950", "Os 15952", "Os 15962", "Os 15964", "Os 15951", "Os 15953", "Os 15963", "Os 15965"]},
+            {"lineName": "J2", "waypoints": ["Humpolec", "Havlíčkův Brod", "Žďár nad Sázavou", "Nové Město na Moravě"], "color": "#3CB44B", "trainNames": ["Os 8765", "Os 8767", "Os 8769", "Os 8771", "Os 8782", "Os 8770", "Os 8784", "Os 8760", "Os 8762", "Os 8764", "Os 8766", "Os 8768"]},
+            {"lineName": "J2", "waypoints": ["Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#3CB44B", "trainNames": ["Os 8780"]},
+            {"lineName": "J3", "waypoints": ["Žďár nad Sázavou", "Velké Meziříčí", "Velké Meziříčí zastávka"], "color": "#FFE119", "trainNames": ["Os 24900", "Os 24902", "Os 24904", "Os 24906", "Os 24910", "Os 24912", "Os 24914", "Os 24918", "Os 24922", "Os 24926", "Os 24928", "Os 24930", "Os 24901", "Os 24903", "Os 24905", "Os 24907", "Os 24909", "Os 24911", "Os 24913", "Os 24917", "Os 24921", "Os 24923", "Os 24925", "Os 24927", "Os 24929"]},
+            {"lineName": "J3", "waypoints": ["Žďár nad Sázavou", "Velké Meziříčí"], "color": "#FFE119", "trainNames": ["Os 24916", "Os 24920", "Os 24924", "Os 24915", "Os 24919"]},
+            {"lineName": "S14", "waypoints": ["Sedlejov", "Telč", "Dačice", "Dačice město"], "color": "#4363D8", "trainNames": ["Os 28331"]},
+            {"lineName": "S14", "waypoints": ["Dačice", "Dačice město", "Slavonice"], "color": "#4363D8", "trainNames": ["Os 28333", "Os 28335", "Os 28337", "Os 28339", "Os 28341", "Os 28343", "Os 28345", "Os 28330", "Os 28332", "Os 28334", "Os 28338", "Os 28340", "Os 28344"]},
+            {"lineName": "S14", "waypoints": ["Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město"], "color": "#4363D8", "trainNames": ["Os 8341", "Os 8342", "Os 8340", "Os 8343"]},
+            {"lineName": "S14", "waypoints": ["Jihlava město", "Kostelec u Jihlavy", "Sedlejov", "Telč", "Dačice", "Dačice město"], "color": "#4363D8", "trainNames": ["Os 28301", "Os 28304", "Os 28306", "Os 28308"]},
+            {"lineName": "S14", "waypoints": ["Hlinsko v Čechách", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Sedlejov", "Telč", "Dačice", "Dačice město", "Slavonice"], "color": "#4363D8", "trainNames": ["Sp 1901", "Sp 1909", "Sp 1900", "Sp 1902", "Sp 1904", "Sp 1906", "Sp 1908", "Sp 1910", "Sp 1914"]},
+            {"lineName": "S14", "waypoints": ["Hlinsko v Čechách", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Sedlejov", "Telč", "Dačice", "Dačice město"], "color": "#4363D8", "trainNames": ["Sp 1903", "Sp 1905", "Sp 1907", "Sp 1911", "Sp 1913"]},
+            {"lineName": "S14", "waypoints": ["Jihlava město", "Kostelec u Jihlavy", "Sedlejov", "Telč", "Dačice", "Dačice město", "Slavonice"], "color": "#4363D8", "trainNames": ["Os 28303", "Os 28305", "Os 28307", "Os 28309", "Os 28311", "Os 28313", "Os 28315", "Os 28302", "Os 28302", "Os 28310", "Os 28312", "Os 28316"]},
+            {"lineName": "S14", "waypoints": ["Hlinsko v Čechách", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město"], "color": "#4363D8", "trainNames": ["Os 5377", "Os 5381", "Os 5385", "Os 5372", "Os 5374", "Os 5378", "Os 5376", "Os 5382", "Os 5384", "Os 5373", "Os 5379", "Os 5383"]},
+            {"lineName": "S14", "waypoints": ["Dobronín", "Jihlava", "Jihlava město", "Kostelec u Jihlavy","Sedlejov", "Telč"], "color": "#4363D8", "trainNames": ["Os 28317"]},
+            {"lineName": "S14", "waypoints": ["Havlíčkův Brod", "Hlinsko v Čechách"], "color": "#4363D8", "trainNames": ["Os 5370"]},
+            {"lineName": "S14", "waypoints": ["Telč", "Sedlejov", "Kostelec u Jihlavy", "Jihlava město"], "color": "#4363D8", "trainNames": ["Os 28300"]},
+            {"lineName": "S14", "waypoints": ["Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Sedlejov", "Telč", "Dačice", "Dačice město", "Slavonice"], "color": "#4363D8", "trainNames": ["Os 28314"]},
+            {"lineName": "S14", "waypoints": ["Hlinsko v Čechách", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Sedlejov", "Telč"], "color": "#4363D8", "trainNames": ["Sp 1912"]},
+            {"lineName": "S14", "waypoints": ["Telč", "Dačice", "Dačice město"], "color": "#4363D8", "trainNames": ["Os 28346"]},
+            {"lineName": "S20", "waypoints": ["Kolín", "Čáslav", "Světlá nad Sázavou", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Batelov", "Horní Cerekev"], "color": "#F58231", "changeAt": "Jihlava", "changesTo": "S13", "changeColor": "#911EB4", "trainNames": ["Os 5904"]},
+            {"lineName": "S20", "waypoints": ["Kolín", "Čáslav", "Světlá nad Sázavou"], "color": "#F58231", "trainNames": ["Os 5900"]},
+            {"lineName": "S20", "waypoints": ["Kolín", "Čáslav", "Světlá nad Sázavou", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město"], "color": "#F58231", "trainNames": ["Os 5902", "Sp 5942", "Os 5906", "Os 5908", "Os 5910", "Os 5912", "Os 5914", "Os 5916", "Os 5918", "Os 5920", "Os 5922", "Os 5924", "Os 5903", "Os 5905", "Os 5907", "Sp 5943", "Os 5909", "Os 5911", "Os 5913", "Os 5915", "Os 5917", "Os 5919", "Os 5921", "Os 5923", "Os 5927", "Os 5929"]},
+            {"lineName": "S20", "waypoints": ["Kolín", "Čáslav", "Světlá nad Sázavou", "Havlíčkův Brod"], "color": "#F58231", "trainNames": ["Sp 5940", "Os 5926", "Sp 5941", "Os 5925"]},
+            {"lineName": "S20", "waypoints": ["Kolín", "Čáslav"], "color": "#F58231", "trainNames": ["Os 5950", "Os 5952", "Os 5954", "Os 5956", "Os 5951", "Os 5953", "Os 5955", "Os 5957", "Os 5959"]},
+            {"lineName": "S20", "waypoints": ["Čáslav", "Světlá nad Sázavou", "Havlíčkův Brod", "Dobronín", "Jihlava", "Jihlava město"], "color": "#F58231", "trainNames": ["Os 5928", "Os 5901"]},
+            {"lineName": "S13", "waypoints": ["Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Batelov", "Horní Cerekev"], "color": "#911EB4", "trainNames": ["Os 18444", "Os 18441", "Os 18443", "Os 18440"]},
+            {"lineName": "S13", "waypoints": ["Dobronín", "Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Batelov", "Horní Cerekev", "Pelhřimov", "Pacov", "Tábor"], "color": "#911EB4", "trainNames": ["Os 18411", "Os 18421", "Os 18408"]},
+            {"lineName": "S13", "waypoints": ["Jihlava", "Jihlava město", "Kostelec u Jihlavy", "Batelov", "Horní Cerekev", "Pelhřimov", "Pacov", "Tábor"], "color": "#911EB4", "trainNames": ["Os 18413", "Os 18415", "Os 18417", "Os 18425", "Os 18429", "Os 18400", "Os 18404", "Os 18406", "Os 18410", "Os 18414", "Os 18418"]},
+            {"lineName": "S13", "waypoints": ["Batelov", "Horní Cerekev", "Pelhřimov", "Pacov", "Tábor"], "color": "#911EB4", "trainNames": ["Os 18405"]},
+            {"lineName": "S13", "waypoints": ["Pelhřimov", "Pacov", "Tábor"], "color": "#911EB4", "trainNames": ["Os 18401", "Os 18403", "Os 18407", "Os 18419", "Os 18402", "Os 18420", "Os 18424"]},
+            {"lineName": "S13", "waypoints": ["Pacov", "Tábor"], "color": "#911EB4", "trainNames": ["Os 18423", "Os 18412", "Os 18416"]},
+            {"lineName": "S13", "waypoints": ["Kostelec u Jihlavy", "Batelov", "Horní Cerekev"], "color": "#911EB4", "trainNames": ["Os 18445"]},
+            {"lineName": "S13", "waypoints": ["Kostelec u Jihlavy", "Batelov", "Horní Cerekev", "Pelhřimov", "Pacov", "Tábor"], "color": "#911EB4", "trainNames": ["Os 18422"]},
+            {"lineName": "J1", "waypoints": ["Okříšky", "Třebíč"], "color": "#42D4F4", "trainNames": ["Os 14861", "Os 14860"]},
+            {"lineName": "J1", "waypoints": ["Jihlava", "Okříšky", "Třebíč"], "color": "#42D4F4", "trainNames": ["Os 14841", "Os 14801", "Os 14803", "Os 14805", "Os 14807", "Os 14809", "Os 14843", "Os 14811", "Os 14813", "Os 14815", "Os 14817", "Os 14845", "Os 14819", "Os 14847", "Os 14823", "Os 14800", "Os 14840", "Os 14806", "Os 14808", "Os 14810", "Os 14844", "Os 14812", "Os 14814", "Os 14816", "Os 14818", "Os 14820", "Os 14846", "Os 14848", "Os 14824", "Os 14850", "Os 14826", "Os 14821"]},
+            {"lineName": "J1", "waypoints": ["Jihlava", "Okříšky", "Třebíč", "Studenec", "Náměšť nad Oslavou", "Zastávka u Brna"], "color": "#42D4F4", "changeAt": "Třebíč", "changesTo": "S42", "changeColor": "#FF5733", "trainNames": ["Os 14825", "Sp 1930", "Os 14852"]},
+            {"lineName": "J1", "waypoints": ["Jihlava", "Okříšky", "Třebíč", "Studenec", "Náměšť nad Oslavou"], "color": "#42D4F4", "changeAt": "Třebíč", "changesTo": "S42", "changeColor": "#FF5733", "trainNames": ["Os 14827", "Os 14802", "Os 14804"]},
+            {"lineName": "S81", "waypoints": ["Okříšky", "Moravské Budějovice", "Znojmo"], "color": "#F032E6", "trainNames": ["Os 24801", "Os 24803", "Os 24805", "Os 24807", "Os 24809", "Os 24811", "Os 24813", "Os 24815", "Os 24821", "Os 24817", "Os 24823", "Os 24800", "Os 24802", "Os 24804", "Os 24806", "Os 24820", "Os 24808", "Os 24810", "Os 24812", "Os 24814", "Os 24816"]},
+            {"lineName": "S81", "waypoints": ["Moravské Budějovice", "Znojmo"], "color": "#F032E6", "trainNames": ["Os 24831", "Os 24833", "Os 24835", "Os 24830", "Os 24832", "Os 24834", "Os 24836"]},
+            {"lineName": "J5", "waypoints": ["Moravské Budějovice", "Jemnice"], "color": "#BFEF45", "trainNames": ["Os 18391", "Os 18393", "Os 18395", "Os 18390", "Os 18392", "Os 18394"]},
+            {"lineName": "J4", "waypoints": ["Studenec", "Velké Meziříčí zastávka", "Velké Meziříčí"], "color": "#469990", "trainNames": ["Os 24960", "Os 24962", "Os 24964", "Os 24966", "Os 24968", "Os 24970", "Os 24972", "Os 24974", "Os 24976", "Os 24963", "Os 24965", "Os 24967", "Os 24969", "Os 24971", "Os 24973", "Os 24975", "Os 24977"]},
+            {"lineName": "J4", "waypoints": ["Studenec", "Velké Meziříčí zastávka"], "color": "#469990", "trainNames": ["Os 24961"]},
+            {"lineName": "R54", "waypoints": ["Jihlava", "Okříšky", "Třebíč", "Studenec", "Náměšť nad Oslavou", "Zastávka u Brna", "Brno"], "color": "#9A6324", "trainNames": ["Sp 1926", "Sp 1928", "Sp 1925", "Sp 1927"]},
+            {"lineName": "S81", "waypoints": ["Havlíčkův Brod", "Dobronín", "Jihlava", "Okříšky", "Moravské Budějovice", "Znojmo"], "color": "#F032E6", "trainNames": ["Sp 1934", "Sp 1935"]},
+            {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice"], "color": "#000075", "trainNames": ["Os 14931", "Os 14933", "Os 14935", "Os 14937", "Os 14939", "Os 14941", "Os 14943", "Os 14945", "Os 14947", "Os 14930", "Os 14932", "Os 14934", "Os 14936", "Os 14938", "Os 14940", "Os 14942", "Os 14944", "Os 14948"]},
+            {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou"], "color": "#000075", "trainNames": ["Os 14901", "Os 14900"]},
+            {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8741", "Os 8743", "Os 8745", "Os 8747", "Os 8749", "Os 8751", "Os 8753", "Os 8755", "Os 8742", "Os 8744", "Os 8746", "Os 8748", "Os 8750", "Os 8752", "Os 8754"]},
+            {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice"], "color": "#000075", "trainNames": ["Os 14946"]},
+            {"lineName": "S31", "waypoints": ["Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8740"]}
+        ];
+
+        // 2. Precalculate Line Colors for Station Badges & Aggregate Data
+        const segmentsMap = {};
+        const stationLines = {};
+        const lineColorsDict = {};
+
+        routes.forEach(route => {
+            lineColorsDict[route.lineName] = route.color;
+            if (route.changesTo) {
+                lineColorsDict[route.changesTo] = route.changeColor || route.color;
+            }
+
+            if (route.trainNames && Array.isArray(route.trainNames)) {
+                route.connections = route.trainNames.length;
+            } else {
+                route.connections = route.connections || 0;
+            }
+
+            const firstStation = route.waypoints[0];
+            const lastStation = route.waypoints[route.waypoints.length - 1];
+
+            let currentLineName = route.lineName;
+            let currentColor = route.color;
+            let hasChanged = false;
+
+            for (let i = 0; i < route.waypoints.length - 1; i++) {
+                const st1 = route.waypoints[i];
+                const st2 = route.waypoints[i + 1];
+
+                if (!stations[st1] || !stations[st2]) continue;
+
+                if (route.changeAt && (st1 === route.changeAt || hasChanged)) {
+                    currentLineName = route.changesTo;
+                    currentColor = route.changeColor || route.color;
+                    hasChanged = true;
+                }
+
+                let segmentRouteLabel = "";
+                if (route.changesTo && route.changeAt) {
+                    if (!hasChanged) {
+                        const cColor = route.changeColor || '#ffffff';
+                        const textC = getContrastColor(cColor);
+                        segmentRouteLabel = `${firstStation} ↔ ${route.changeAt} <span class="line-badge" style="background-color: ${cColor}; color: ${textC}; margin: 0 4px; padding: 1px 6px; font-size: 11px;">${route.changesTo}</span> ↔ ${lastStation}`;
+                    } else {
+                        const origColor = route.color || '#ffffff';
+                        const textO = getContrastColor(origColor);
+                        segmentRouteLabel = `${firstStation} ↔ <span class="line-badge" style="background-color: ${origColor}; color: ${textO}; margin: 0 4px; padding: 1px 6px; font-size: 11px;">${route.lineName}</span> ${route.changeAt} ↔ ${lastStation}`;
+                    }
+                } else {
+                    const endA = firstStation < lastStation ? firstStation : lastStation;
+                    const endB = firstStation < lastStation ? lastStation : firstStation;
+                    segmentRouteLabel = `${endA} ↔ ${endB}`;
+                }
+
+                if (!stationLines[st1]) stationLines[st1] = new Set();
+                if (!stationLines[st2]) stationLines[st2] = new Set();
+                stationLines[st1].add(currentLineName);
+                stationLines[st2].add(currentLineName);
+
+                const lon1 = stations[st1][1];
+                const lon2 = stations[st2][1];
+                let isReversed = false;
+
+                if (lon1 > lon2) {
+                    isReversed = true;
+                } else if (lon1 === lon2) {
+                    isReversed = stations[st1][0] > stations[st2][0];
+                }
+
+                const nodeA = isReversed ? st2 : st1;
+                const nodeB = isReversed ? st1 : st2;
+                const segmentKey = `${nodeA}---${nodeB}`;
+
+                if (!segmentsMap[segmentKey]) segmentsMap[segmentKey] = {};
+
+                const lineKey = currentLineName;
+
+                if (!segmentsMap[segmentKey][lineKey]) {
+                    segmentsMap[segmentKey][lineKey] = {
+                        lineName: currentLineName,
+                        connections: 0,
+                        color: currentColor,
+                        nodeA: nodeA,
+                        nodeB: nodeB,
+                        destinations: {}
+                    };
+                }
+
+                segmentsMap[segmentKey][lineKey].connections += route.connections;
+
+                if (!segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel]) {
+                    segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel] = {
+                        count: 0,
+                        trains: []
+                    };
+                }
+
+                segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel].count += route.connections;
+                if (route.trainNames) {
+                    segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel].trains.push(...route.trainNames);
+                }
+            }
+        });
+
+        // 3. Draw Segments
+        Object.entries(segmentsMap).forEach(([segKey, linesObj]) => {
+            const linesOnSegment = Object.values(linesObj);
+            linesOnSegment.sort((a, b) => a.lineName.localeCompare(b.lineName));
+
+            let totalThickness = 0;
+            const gap = 2;
+
+            linesOnSegment.forEach(seg => {
+                seg.thickness = (seg.connections * 0.22) + 2.5;
+                totalThickness += seg.thickness;
+            });
+
+            totalThickness += (linesOnSegment.length - 1) * gap;
+            let currentOffset = -totalThickness / 2;
+
+            linesOnSegment.forEach((segData) => {
+                const offset = currentOffset + (segData.thickness / 2);
+                const latlngs = [ stations[segData.nodeA], stations[segData.nodeB] ];
+
+                L.polyline(latlngs, {
+                    color: '#1a1a1a',
+                    weight: segData.thickness + 2.5,
+                    opacity: 1,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    offset: offset
+                }).addTo(map);
+
+                const polyline = L.polyline(latlngs, {
+                    color: segData.color,
+                    weight: segData.thickness,
+                    opacity: 1,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    offset: offset
+                }).addTo(map);
+
+                let destinationsHtml = "";
+                for (const [routeLabel, data] of Object.entries(segData.destinations)) {
+                    const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
+
+                    destinationsHtml += `
+                        <details class="dest-details">
+                            <summary class="dest-row">
+                                <span>${routeLabel}</span>
+                                <span class="dest-right">
+                                    <span class="dest-count">${data.count}</span>
+                                    <span class="dest-arrow">▼</span>
+                                </span>
+                            </summary>
+                            <div class="dest-trains">${uniqueTrains}</div>
+                        </details>
+                    `;
+                }
+
+                const badgeTextColor = getContrastColor(segData.color);
+
+                const tooltipContent = `
+                    <div class="tooltip-header">
+                        <span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor};">${segData.lineName}</span>
+                    </div>
+                    <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
+                    <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
+                    <div class="tooltip-destinations">
+                        <div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení (Kliknutím rozbalte)</div>
+                        ${destinationsHtml}
+                    </div>
+                `;
+
+                polyline.bindTooltip(tooltipContent, { sticky: true });
+                polyline.bindPopup(tooltipContent, { className: 'custom-popup' });
+
+                polyline.on('popupopen', function() {
+                    this.closeTooltip();
+                    this.unbindTooltip();
+                });
+
+                polyline.on('popupclose', function() {
+                    this.bindTooltip(tooltipContent, { sticky: true });
+                });
+
+                currentOffset += segData.thickness + gap;
+            });
+        });
+
+        // 4. Draw Stations with Chunked (Max 3/row) Hover Icons
+        for (const [name, coords] of Object.entries(stations)) {
+            const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
+            const isJunction = passingLines.length > 1;
+
+            // NEW: Group badges into exact rows of 3 to guarantee centering and layout
+            let rowsHtml = '';
+            for (let i = 0; i < passingLines.length; i += 3) {
+                const chunk = passingLines.slice(i, i + 3);
+                const badgesHtml = chunk.map(line => {
+                    const bgColor = lineColorsDict[line] || '#cccccc';
+                    const textColor = getContrastColor(bgColor);
+                    return `<span class="line-badge" style="background-color: ${bgColor}; color: ${textColor}; margin: 2px;">${line}</span>`;
+                }).join('');
+
+                // Each row is perfectly centered
+                rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
+            }
+
+            const tooltipHtml = `
+                <div style="text-align: center; min-width: 80px;">
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div>
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        ${rowsHtml}
+                    </div>
+                </div>
+            `;
+
+            L.circleMarker(coords, {
+                radius: isJunction ? 5.5 : 3.5,
+                fillColor: "#ffffff",
+                color: "#1a1a1a",
+                weight: isJunction ? 3 : 2,
+                opacity: 1,
+                fillOpacity: 1
+            }).bindTooltip(tooltipHtml, {
+                className: 'station-tooltip',
+                direction: 'top',
+                offset: [0, isJunction ? -10 : -8]
+            }).addTo(map);
+        }
+    </script>
+</body>
+</html>
