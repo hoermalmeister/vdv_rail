@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDV Vlakové linky</title>
+    <title>Train Connections Map</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -29,11 +29,9 @@
             pointer-events: none;
         }
         .leaflet-tooltip::before,
-        .leaflet-tooltip::after {
-            display: none !important;
-        }
+        .leaflet-tooltip::after { display: none !important; }
 
-        /* CLICK-TO-PIN POPUP (Matches Tooltip Styling) */
+        /* CLICK-TO-PIN POPUP (Desktop) */
         .custom-popup .leaflet-popup-content-wrapper {
             background-color: rgba(25, 30, 36, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -42,128 +40,99 @@
             border-radius: 8px;
             padding: 0;
         }
-        .custom-popup .leaflet-popup-content {
-            margin: 12px 16px;
-            font-family: 'Inter', sans-serif;
-            font-size: 13px;
-            line-height: 1.5;
-            min-width: 260px;
-        }
+        .custom-popup .leaflet-popup-content { margin: 12px 16px; font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; min-width: 260px; }
         .custom-popup .leaflet-popup-tip-container { display: none !important; }
-        .custom-popup a.leaflet-popup-close-button {
-            color: #94a3b8 !important;
-            top: 10px !important;
-            right: 10px !important;
-            font-size: 16px !important;
-            padding: 0 !important;
-        }
+        .custom-popup a.leaflet-popup-close-button { color: #94a3b8 !important; top: 10px !important; right: 10px !important; font-size: 16px !important; padding: 0 !important; }
         .custom-popup a.leaflet-popup-close-button:hover { color: #ffffff !important; }
 
         /* Internal Content Styling */
-        .tooltip-header {
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 4px;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding-right: 16px;
-        }
-
-        /* Line Badges */
-        .line-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 700;
-            font-size: 12px;
-            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); /* Gives a slight border for visibility */
-        }
-
+        .tooltip-header { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px; padding-right: 16px; }
+        .line-badge { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
         .tooltip-segment { color: #94a3b8; margin-bottom: 8px; font-size: 12px; }
         .tooltip-connections { font-weight: 600; color: #e2e8f0; }
-        .tooltip-destinations {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            color: #cbd5e1;
-        }
+        .tooltip-destinations { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 
         /* Dropdown Train Names Styling */
         .dest-details { margin-top: 2px; }
-        .dest-details summary { list-style: none; outline: none; }
+        .dest-details summary { list-style: none; outline: none; cursor: pointer; }
         .dest-details summary::-webkit-details-marker { display: none; }
-
-        .dest-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px;
-            border-radius: 4px;
-            transition: background-color 0.2s ease;
-        }
+        .dest-row { display: flex; justify-content: space-between; align-items: center; padding: 4px; border-radius: 4px; transition: background-color 0.2s ease; }
         .dest-right { display: flex; align-items: center; }
         .dest-count { font-weight: 700; color: #38bdf8; margin-left: 12px; }
-
-        .dest-arrow {
-            font-size: 9px;
-            color: #64748b;
-            margin-left: 8px;
-            transition: transform 0.2s ease;
-            display: inline-block;
-        }
+        .dest-arrow { font-size: 9px; color: #64748b; margin-left: 8px; transition: transform 0.2s ease; display: inline-block; }
         .dest-details[open] .dest-arrow { transform: rotate(180deg); }
-        .custom-popup .dest-details summary { cursor: pointer; }
-        .custom-popup .dest-row:hover { background-color: rgba(255, 255, 255, 0.08); }
-        .leaflet-tooltip .dest-arrow { display: none; }
+        .dest-row:hover { background-color: rgba(255, 255, 255, 0.08); }
+        .leaflet-tooltip .dest-arrow { display: none; } /* Hide arrow in hover tooltip */
 
         .dest-trains {
-            font-size: 11px;
-            color: #94a3b8;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 6px 8px;
-            border-radius: 4px;
-            margin: 4px 0 6px 4px;
-            word-wrap: break-word;
-            line-height: 1.5;
-            border-left: 2px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3);
+            padding: 6px 8px; border-radius: 4px; margin: 4px 0 6px 4px;
+            word-wrap: break-word; line-height: 1.5; border-left: 2px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* Station Tooltip specifically */
+        /* Station Tooltip */
         .station-tooltip {
-            background-color: #ffffff;
-            color: #1e293b;
-            border: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            white-space: normal;
-            min-width: 60px;
+            background-color: #ffffff; color: #1e293b; border: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); padding: 6px 10px;
+            border-radius: 6px; font-size: 12px; white-space: normal; min-width: 60px;
         }
 
         .leaflet-marker-pane { z-index: 650; }
 
         /* Title Box Overlay */
         .map-overlay {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(25, 30, 36, 0.95);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            max-width: 320px;
-            pointer-events: none;
+            position: absolute; top: 20px; right: 20px; z-index: 1000;
+            background: rgba(25, 30, 36, 0.95); color: white; padding: 20px;
+            border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1); max-width: 320px; pointer-events: none;
         }
         .map-overlay h1 { margin: 0 0 8px 0; font-size: 18px; letter-spacing: 0.5px; }
         .map-overlay p { margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5; }
+
+        /* Legend Box Bottom Left */
+        .map-legend {
+            background: rgba(25, 30, 36, 0.95); color: #f1f5f9; padding: 14px;
+            border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+            font-family: 'Inter', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            max-height: 350px; overflow-y: auto; pointer-events: auto;
+        }
+        .map-legend::-webkit-scrollbar { width: 6px; }
+        .map-legend::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .legend-title { font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid #334155; padding-bottom: 6px;}
+        .legend-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
+        .legend-stops { font-size: 11px; color: #cbd5e1; white-space: nowrap; font-weight: 600;}
+
+        /* Mobile Line Chooser Modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.65); z-index: 3000; justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: rgba(25, 30, 36, 0.98); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px; width: 90%; max-width: 380px; padding: 20px; color: #f1f5f9;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px; }
+        .modal-header h3 { margin: 0; font-size: 16px; color: white;}
+        .close-btn, .back-btn { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0; transition: color 0.2s;}
+        .close-btn { font-size: 24px; line-height: 1; }
+        .back-btn { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+        .close-btn:hover, .back-btn:hover { color: white; }
+        .modal-line-list { display: flex; flex-direction: column; gap: 8px; }
+        .modal-line-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px; border-radius: 8px; cursor: pointer; text-align: left;
+            display: flex; align-items: center; transition: background 0.2s; gap: 12px;
+        }
+        .modal-line-btn:active { background: rgba(255,255,255,0.1); }
+        .modal-line-btn span.btn-text { font-size: 13px; color: #cbd5e1; font-family: 'Inter', sans-serif;}
+
+        @media (max-width: 768px) {
+            .map-overlay { top: 10px; right: 10px; padding: 12px; max-width: 250px; }
+            .map-overlay h1 { font-size: 16px; }
+            .map-overlay p { font-size: 11px; }
+        }
     </style>
 </head>
 <body>
@@ -172,10 +141,17 @@
 
     <div class="map-overlay">
         <h1>VDV Vlakové linky</h1>
-        <p>Tloušťka čáry reprezentuje frekvenci linky. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte konkrétní vlaky.</p>
+        <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte vlaky.</p>
+    </div>
+
+    <div id="mobile-modal" class="modal-overlay">
+        <div id="mobile-modal-content" class="modal-box"></div>
     </div>
 
     <script>
+        // Check if device is mobile (for click logic)
+        const isMobile = window.innerWidth <= 768 || L.Browser.mobile;
+
         // --- HELPER FUNCTION: Smart Luminance Checker ---
         function getContrastColor(hexColor) {
             if (!hexColor) return '#ffffff';
@@ -199,8 +175,8 @@
             maxZoom: 20
         }).addTo(map);
 
+        // --- DATA ---
         const stations = {"Batelov": [49.3175164, 15.3982258], "Brno": [49.1905822, 16.6128025], "Byst\u0159ice": [49.5136908, 16.2469789], "Da\u010dice": [49.0859183, 15.4391956], "Da\u010dice m\u011bsto": [49.0784492, 15.4396906], "Dobron\u00edn": [49.4782714, 15.6417169], "Havl\u00ed\u010dk\u016fv Brod": [49.5986939, 15.5877361], "Hlinsko v \u010cech\u00e1ch": [49.7667542, 15.9017544], "Horn\u00ed Cerekev": [49.3111419, 15.3246822], "Humpolec": [49.5349275, 15.34822], "Jemnice": [49.0160103, 15.5809411], "Jihlava": [49.4147033, 15.5993567], "Jihlava m\u011bsto": [49.4038733, 15.5834283], "Kol\u00edn": [50.0254631, 15.2145328], "Kostelec u Jihlavy": [49.3572922, 15.4822675], "Lede\u010d nad S\u00e1zavou": [49.6979675, 15.2703847], "Moravsk\u00e9 Bud\u011bjovice": [49.0575675, 15.8093778], "Nedv\u011bdice": [49.4544258, 16.3359833], "Nov\u00e9 M\u011bsto na Morav\u011b": [49.5685617, 16.0803489], "N\u00e1m\u011b\u0161\u0165 nad Oslavou": [49.2070197, 16.1475372], "Ok\u0159\u00ed\u0161ky": [49.2479933, 15.7708692], "Pacov": [49.4599036, 15.0171661], "Pelh\u0159imov": [49.4196625, 15.222475], "Sedlejov": [49.2248153, 15.4957056], "Slavonice": [48.9937819, 15.3491383], "Studenec": [49.2225722, 16.0690517], "Sv\u011btl\u00e1 nad S\u00e1zavou": [49.6703339, 15.4171458], "Tel\u010d": [49.1825867, 15.4644803], "Ti\u0161nov": [49.3471183, 16.4182664], "T\u00e1bor": [49.4140969, 14.6771811], "T\u0159eb\u00ed\u010d": [49.2114983, 15.8843594], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed": [49.3456764, 16.021925], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed zast\u00e1vka": [49.3527869, 16.0088786], "Zast\u00e1vka u Brna": [49.1874886, 16.3586636], "Znojmo": [48.8527717, 16.0592767], "Zru\u010d nad S\u00e1zavou": [49.7384872, 15.1040039], "\u010c\u00e1slav": [49.9151992, 15.3946428], "\u017d\u010f\u00e1r nad S\u00e1zavou": [49.5535164, 15.9399528]};
-
         const routes = [
             {"lineName": "S82", "waypoints": ["Ledeč nad Sázavou", "Zruč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24850", "Os 24885"]},
             {"lineName": "S82", "waypoints": ["Havlíčkův Brod", "Světlá nad Sázavou", "Ledeč nad Sázavou", "Zruč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24852", "Os 24854", "Os 24858", "Os 24860", "Os 24862", "Os 24864", "Os 24866", "Os 24868", "Os 24870", "Os 24872", "Os 24876", "Os 24878", "Os 24882", "Os 24853", "Os 24855", "Os 24857", "Os 24861", "Os 24863", "Os 24865", "Os 24867", "Os 24869", "Os 24871", "Os 24873", "Os 24875", "Os 24877", "Os 24881", "Os 24883", "Os 24885"]},
@@ -258,10 +234,11 @@
             {"lineName": "S31", "waypoints": ["Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8740"]}
         ];
 
-        // 2. Precalculate Line Colors for Station Badges & Aggregate Data
+        // --- PRECALCULATION: Data processing & Legend bounds ---
         const segmentsMap = {};
         const stationLines = {};
         const lineColorsDict = {};
+        const lineEndpoints = {};
 
         routes.forEach(route => {
             lineColorsDict[route.lineName] = route.color;
@@ -277,6 +254,32 @@
 
             const firstStation = route.waypoints[0];
             const lastStation = route.waypoints[route.waypoints.length - 1];
+
+            // LEGEND LOGIC: Correctly track the max extent of lines, including splits for "changesTo" routes
+            if (route.changeAt && route.changesTo) {
+                const changeIndex = route.waypoints.indexOf(route.changeAt);
+                if (changeIndex !== -1) {
+                    // First part: original line name goes from start -> changeAt
+                    const part1Len = changeIndex + 1;
+                    if (!lineEndpoints[route.lineName] || part1Len > lineEndpoints[route.lineName].length) {
+                        lineEndpoints[route.lineName] = { length: part1Len, start: firstStation, end: route.changeAt, color: route.color };
+                    }
+
+                    // Second part: changed line name goes from changeAt -> end
+                    const part2Len = route.waypoints.length - changeIndex;
+                    if (!lineEndpoints[route.changesTo] || part2Len > lineEndpoints[route.changesTo].length) {
+                        lineEndpoints[route.changesTo] = { length: part2Len, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
+                    }
+                } else {
+                    if (!lineEndpoints[route.lineName] || route.waypoints.length > lineEndpoints[route.lineName].length) {
+                        lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
+                    }
+                }
+            } else {
+                if (!lineEndpoints[route.lineName] || route.waypoints.length > lineEndpoints[route.lineName].length) {
+                    lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
+                }
+            }
 
             let currentLineName = route.lineName;
             let currentColor = route.color;
@@ -320,11 +323,7 @@
                 const lon2 = stations[st2][1];
                 let isReversed = false;
 
-                if (lon1 > lon2) {
-                    isReversed = true;
-                } else if (lon1 === lon2) {
-                    isReversed = stations[st1][0] > stations[st2][0];
-                }
+                if (lon1 > lon2) { isReversed = true; } else if (lon1 === lon2) { isReversed = stations[st1][0] > stations[st2][0]; }
 
                 const nodeA = isReversed ? st2 : st1;
                 const nodeB = isReversed ? st1 : st2;
@@ -336,22 +335,14 @@
 
                 if (!segmentsMap[segmentKey][lineKey]) {
                     segmentsMap[segmentKey][lineKey] = {
-                        lineName: currentLineName,
-                        connections: 0,
-                        color: currentColor,
-                        nodeA: nodeA,
-                        nodeB: nodeB,
-                        destinations: {}
+                        lineName: currentLineName, connections: 0, color: currentColor, nodeA: nodeA, nodeB: nodeB, destinations: {}
                     };
                 }
 
                 segmentsMap[segmentKey][lineKey].connections += route.connections;
 
                 if (!segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel]) {
-                    segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel] = {
-                        count: 0,
-                        trains: []
-                    };
+                    segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel] = { count: 0, trains: [] };
                 }
 
                 segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel].count += route.connections;
@@ -361,7 +352,88 @@
             }
         });
 
-        // 3. Draw Segments
+        // --- DRAWING: Generate the popup content logic ---
+        function generateTooltipHtml(segData) {
+            let destinationsHtml = "";
+            for (const [routeLabel, data] of Object.entries(segData.destinations)) {
+                const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
+                destinationsHtml += `
+                    <details class="dest-details">
+                        <summary class="dest-row">
+                            <span>${routeLabel}</span>
+                            <span class="dest-right">
+                                <span class="dest-count">${data.count}</span>
+                                <span class="dest-arrow">▼</span>
+                            </span>
+                        </summary>
+                        <div class="dest-trains">${uniqueTrains}</div>
+                    </details>
+                `;
+            }
+
+            const badgeTextColor = getContrastColor(segData.color);
+
+            return `
+                <div class="tooltip-header">
+                    <span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor};">${segData.lineName}</span>
+                </div>
+                <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
+                <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
+                <div class="tooltip-destinations">
+                    <div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení (Kliknutím rozbalte)</div>
+                    ${destinationsHtml}
+                </div>
+            `;
+        }
+
+        // --- UI LOGIC: Mobile Modal System ---
+        function openMobileModal(nodeA, nodeB, linesOnSegment) {
+            const modal = document.getElementById('mobile-modal');
+            const content = document.getElementById('mobile-modal-content');
+
+            let buttonsHtml = linesOnSegment.map((seg, idx) => {
+                const textColor = getContrastColor(seg.color);
+                return `<button class="modal-line-btn" onclick="showMobileDetails(${idx})">
+                            <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
+                            <span class="btn-text">Zobrazit spojení...</span>
+                        </button>`;
+            }).join('');
+
+            content.innerHTML = `
+                <div class="modal-header">
+                    <h3>${nodeA} ↔ ${nodeB}</h3>
+                    <button onclick="closeModal()" class="close-btn">&times;</button>
+                </div>
+                <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Na tomto úseku jezdí více linek. Kterou chcete zobrazit?</p>
+                <div class="modal-line-list">
+                    ${buttonsHtml}
+                </div>
+            `;
+
+            window.currentSegmentLinesData = linesOnSegment; // Store for the next screen
+            modal.style.display = 'flex';
+        }
+
+        window.showMobileDetails = function(idx) {
+            const segData = window.currentSegmentLinesData[idx];
+            const content = document.getElementById('mobile-modal-content');
+
+            const detailedHtml = generateTooltipHtml(segData);
+
+            content.innerHTML = `
+                <div class="modal-header">
+                    <button onclick="openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button>
+                    <button onclick="closeModal()" class="close-btn">&times;</button>
+                </div>
+                ${detailedHtml}
+            `;
+        };
+
+        window.closeModal = function() {
+            document.getElementById('mobile-modal').style.display = 'none';
+        };
+
+        // --- DRAWING: Lines on Map ---
         Object.entries(segmentsMap).forEach(([segKey, linesObj]) => {
             const linesOnSegment = Object.values(linesObj);
             linesOnSegment.sort((a, b) => a.lineName.localeCompare(b.lineName));
@@ -381,78 +453,41 @@
                 const offset = currentOffset + (segData.thickness / 2);
                 const latlngs = [ stations[segData.nodeA], stations[segData.nodeB] ];
 
+                // Casing
                 L.polyline(latlngs, {
-                    color: '#1a1a1a',
-                    weight: segData.thickness + 2.5,
-                    opacity: 1,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                    offset: offset
+                    color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset
                 }).addTo(map);
 
+                // Line
                 const polyline = L.polyline(latlngs, {
-                    color: segData.color,
-                    weight: segData.thickness,
-                    opacity: 1,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                    offset: offset
+                    color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset
                 }).addTo(map);
 
-                let destinationsHtml = "";
-                for (const [routeLabel, data] of Object.entries(segData.destinations)) {
-                    const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
+                const tooltipContent = generateTooltipHtml(segData);
 
-                    destinationsHtml += `
-                        <details class="dest-details">
-                            <summary class="dest-row">
-                                <span>${routeLabel}</span>
-                                <span class="dest-right">
-                                    <span class="dest-count">${data.count}</span>
-                                    <span class="dest-arrow">▼</span>
-                                </span>
-                            </summary>
-                            <div class="dest-trains">${uniqueTrains}</div>
-                        </details>
-                    `;
+                if (!isMobile) {
+                    // DESKTOP: Hover + Click to Pin
+                    polyline.bindTooltip(tooltipContent, { sticky: true });
+                    polyline.bindPopup(tooltipContent, { className: 'custom-popup' });
+
+                    polyline.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
+                    polyline.on('popupclose', function() { this.bindTooltip(tooltipContent, { sticky: true }); });
+                } else {
+                    // MOBILE: Click opens the dialog chooser
+                    polyline.on('click', function() {
+                        openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                    });
                 }
-
-                const badgeTextColor = getContrastColor(segData.color);
-
-                const tooltipContent = `
-                    <div class="tooltip-header">
-                        <span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor};">${segData.lineName}</span>
-                    </div>
-                    <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
-                    <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
-                    <div class="tooltip-destinations">
-                        <div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení (Kliknutím rozbalte)</div>
-                        ${destinationsHtml}
-                    </div>
-                `;
-
-                polyline.bindTooltip(tooltipContent, { sticky: true });
-                polyline.bindPopup(tooltipContent, { className: 'custom-popup' });
-
-                polyline.on('popupopen', function() {
-                    this.closeTooltip();
-                    this.unbindTooltip();
-                });
-
-                polyline.on('popupclose', function() {
-                    this.bindTooltip(tooltipContent, { sticky: true });
-                });
 
                 currentOffset += segData.thickness + gap;
             });
         });
 
-        // 4. Draw Stations with Chunked (Max 3/row) Hover Icons
+        // --- DRAWING: Station Nodes ---
         for (const [name, coords] of Object.entries(stations)) {
             const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
             const isJunction = passingLines.length > 1;
 
-            // NEW: Group badges into exact rows of 3 to guarantee centering and layout
             let rowsHtml = '';
             for (let i = 0; i < passingLines.length; i += 3) {
                 const chunk = passingLines.slice(i, i + 3);
@@ -461,17 +496,13 @@
                     const textColor = getContrastColor(bgColor);
                     return `<span class="line-badge" style="background-color: ${bgColor}; color: ${textColor}; margin: 2px;">${line}</span>`;
                 }).join('');
-
-                // Each row is perfectly centered
                 rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
             }
 
             const tooltipHtml = `
                 <div style="text-align: center; min-width: 80px;">
                     <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div>
-                    <div style="display: flex; flex-direction: column; align-items: center;">
-                        ${rowsHtml}
-                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div>
                 </div>
             `;
 
@@ -483,11 +514,42 @@
                 opacity: 1,
                 fillOpacity: 1
             }).bindTooltip(tooltipHtml, {
-                className: 'station-tooltip',
-                direction: 'top',
-                offset: [0, isJunction ? -10 : -8]
+                className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8]
             }).addTo(map);
         }
+
+        // --- MAP LEGEND GENERATION ---
+        const legend = L.control({position: 'bottomleft'});
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'map-legend');
+
+            // Prevent map clicks AND mouse scrolling inside the legend from affecting the map!
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+
+            let html = '<div class="legend-title">Linky a konečné stanice</div>';
+
+            const sortedLines = Object.keys(lineEndpoints).sort();
+
+            sortedLines.forEach(line => {
+                const data = lineEndpoints[line];
+                const textColor = getContrastColor(data.color);
+
+                const endA = data.start < data.end ? data.start : data.end;
+                const endB = data.start < data.end ? data.end : data.start;
+
+                html += `
+                    <div class="legend-row">
+                        <span class="line-badge" style="background-color: ${data.color}; color: ${textColor}; min-width: 32px;">${line}</span>
+                        <span class="legend-stops">${endA} ↔ ${endB}</span>
+                    </div>
+                `;
+            });
+            div.innerHTML = html;
+            return div;
+        };
+        legend.addTo(map);
+
     </script>
 </body>
 </html>
