@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDV Vlakové linky</title>
+    <title>Train Connections Map</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -62,7 +62,7 @@
         .dest-arrow { font-size: 9px; color: #64748b; margin-left: 8px; transition: transform 0.2s ease; display: inline-block; }
         .dest-details[open] .dest-arrow { transform: rotate(180deg); }
         .dest-row:hover { background-color: rgba(255, 255, 255, 0.08); }
-        .leaflet-tooltip .dest-arrow { display: none; }
+        .leaflet-tooltip .dest-arrow { display: none; } /* Hide arrow in hover tooltip */
 
         .dest-trains {
             font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3);
@@ -96,7 +96,6 @@
             font-family: 'Inter', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             pointer-events: auto;
         }
-        /* New Interactive Legend Title */
         .legend-title {
             font-weight: 700; margin-bottom: 10px; font-size: 13px;
             border-bottom: 1px solid #334155; padding-bottom: 6px;
@@ -113,6 +112,10 @@
         .legend-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
         .legend-row:last-child { margin-bottom: 0; }
         .legend-stops { font-size: 11px; color: #cbd5e1; white-space: nowrap; font-weight: 600;}
+
+        /* Scrollbar styles for modal and mobile legend */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
 
         /* Mobile Line Chooser Modal */
         .modal-overlay {
@@ -144,6 +147,12 @@
             .map-overlay { top: 10px; right: 10px; padding: 12px; max-width: 250px; }
             .map-overlay h1 { font-size: 16px; }
             .map-overlay p { font-size: 11px; }
+
+            .map-legend {
+                margin-bottom: 60px;
+                max-height: 40vh;
+                overflow-y: auto;
+            }
         }
     </style>
 </head>
@@ -185,6 +194,7 @@
             maxZoom: 20
         }).addTo(map);
 
+        // --- DATA ---
         const stations = {"Batelov": [49.3175164, 15.3982258], "Brno": [49.1905822, 16.6128025], "Byst\u0159ice": [49.5136908, 16.2469789], "Da\u010dice": [49.0859183, 15.4391956], "Da\u010dice m\u011bsto": [49.0784492, 15.4396906], "Dobron\u00edn": [49.4782714, 15.6417169], "Havl\u00ed\u010dk\u016fv Brod": [49.5986939, 15.5877361], "Hlinsko v \u010cech\u00e1ch": [49.7667542, 15.9017544], "Horn\u00ed Cerekev": [49.3111419, 15.3246822], "Humpolec": [49.5349275, 15.34822], "Jemnice": [49.0160103, 15.5809411], "Jihlava": [49.4147033, 15.5993567], "Jihlava m\u011bsto": [49.4038733, 15.5834283], "Kol\u00edn": [50.0254631, 15.2145328], "Kostelec u Jihlavy": [49.3572922, 15.4822675], "Lede\u010d nad S\u00e1zavou": [49.6979675, 15.2703847], "Moravsk\u00e9 Bud\u011bjovice": [49.0575675, 15.8093778], "Nedv\u011bdice": [49.4544258, 16.3359833], "Nov\u00e9 M\u011bsto na Morav\u011b": [49.5685617, 16.0803489], "N\u00e1m\u011b\u0161\u0165 nad Oslavou": [49.2070197, 16.1475372], "Ok\u0159\u00ed\u0161ky": [49.2479933, 15.7708692], "Pacov": [49.4599036, 15.0171661], "Pelh\u0159imov": [49.4196625, 15.222475], "Sedlejov": [49.2248153, 15.4957056], "Slavonice": [48.9937819, 15.3491383], "Studenec": [49.2225722, 16.0690517], "Sv\u011btl\u00e1 nad S\u00e1zavou": [49.6703339, 15.4171458], "Tel\u010d": [49.1825867, 15.4644803], "Ti\u0161nov": [49.3471183, 16.4182664], "T\u00e1bor": [49.4140969, 14.6771811], "T\u0159eb\u00ed\u010d": [49.2114983, 15.8843594], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed": [49.3456764, 16.021925], "Velk\u00e9 Mezi\u0159\u00ed\u010d\u00ed zast\u00e1vka": [49.3527869, 16.0088786], "Zast\u00e1vka u Brna": [49.1874886, 16.3586636], "Znojmo": [48.8527717, 16.0592767], "Zru\u010d nad S\u00e1zavou": [49.7384872, 15.1040039], "\u010c\u00e1slav": [49.9151992, 15.3946428], "\u017d\u010f\u00e1r nad S\u00e1zavou": [49.5535164, 15.9399528]};
         const routes = [
             {"lineName": "S82", "waypoints": ["Ledeč nad Sázavou", "Zruč nad Sázavou"], "color": "#E6194B", "trainNames": ["Os 24850", "Os 24885"]},
@@ -264,6 +274,7 @@
             const firstStation = route.waypoints[0];
             const lastStation = route.waypoints[route.waypoints.length - 1];
 
+            // LEGEND LOGIC: Track the max extent of lines, including splits for "changesTo" routes
             if (route.changeAt && route.changesTo) {
                 const changeIndex = route.waypoints.indexOf(route.changeAt);
                 if (changeIndex !== -1) {
@@ -429,19 +440,30 @@
             modal.style.display = 'flex';
         }
 
-        window.showMobileDetails = function(idx) {
+        window.showMobileDetails = function(idx, isSingle = false) {
             const segData = window.currentSegmentLinesData[idx];
             const content = document.getElementById('mobile-modal-content');
 
             const detailedHtml = generateTooltipHtml(segData);
 
-            content.innerHTML = `
-                <div class="modal-header">
-                    <button onclick="openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button>
-                    <button onclick="closeModal()" class="close-btn">&times;</button>
-                </div>
-                ${detailedHtml}
-            `;
+            let headerHtml = '';
+            if (isSingle) {
+                headerHtml = `
+                    <div class="modal-header" style="justify-content: flex-end;">
+                        <button onclick="closeModal()" class="close-btn">&times;</button>
+                    </div>
+                `;
+            } else {
+                headerHtml = `
+                    <div class="modal-header">
+                        <button onclick="openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button>
+                        <button onclick="closeModal()" class="close-btn">&times;</button>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = headerHtml + detailedHtml;
+            document.getElementById('mobile-modal').style.display = 'flex';
         };
 
         window.closeModal = function() {
@@ -468,25 +490,38 @@
                 const offset = currentOffset + (segData.thickness / 2);
                 const latlngs = [ stations[segData.nodeA], stations[segData.nodeB] ];
 
+                // 3a. Draw background casing (visual only)
                 L.polyline(latlngs, {
-                    color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset
+                    color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false
                 }).addTo(map);
 
-                const polyline = L.polyline(latlngs, {
-                    color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset
+                // 3b. Draw the actual colored line (visual only)
+                L.polyline(latlngs, {
+                    color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false
+                }).addTo(map);
+
+                // 3c. Draw invisible interaction layer (Fat Hitbox)
+                const hitBoxWeight = isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
+                const interactionLine = L.polyline(latlngs, {
+                    color: '#000000', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset
                 }).addTo(map);
 
                 const tooltipContent = generateTooltipHtml(segData);
 
                 if (!isMobile) {
-                    polyline.bindTooltip(tooltipContent, { sticky: true });
-                    polyline.bindPopup(tooltipContent, { className: 'custom-popup' });
+                    interactionLine.bindTooltip(tooltipContent, { sticky: true });
+                    interactionLine.bindPopup(tooltipContent, { className: 'custom-popup' });
 
-                    polyline.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
-                    polyline.on('popupclose', function() { this.bindTooltip(tooltipContent, { sticky: true }); });
+                    interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
+                    interactionLine.on('popupclose', function() { this.bindTooltip(tooltipContent, { sticky: true }); });
                 } else {
-                    polyline.on('click', function() {
-                        openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                    interactionLine.on('click', function() {
+                        if (linesOnSegment.length === 1) {
+                            window.currentSegmentLinesData = linesOnSegment;
+                            showMobileDetails(0, true);
+                        } else {
+                            openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                        }
                     });
                 }
 
@@ -564,7 +599,6 @@
             html += '</div>';
             div.innerHTML = html;
 
-            // Add toggle functionality after injecting HTML
             setTimeout(() => {
                 const titleBtn = div.querySelector('#legend-toggle');
                 const contentDiv = div.querySelector('#legend-content');
