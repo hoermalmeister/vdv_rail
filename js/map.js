@@ -66,11 +66,8 @@ window.initializeMap = function() {
             ? `<div class="modal-header" style="justify-content: flex-end;"><button onclick="window.closeModal()" class="close-btn">&times;</button></div>` 
             : `<div class="modal-header"><button onclick="window.openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button><button onclick="window.closeModal()" class="close-btn">&times;</button></div>`;
 
-        let ttButton = `<div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
-                <button onclick="window.openTimetable('${segData.lineName}'); window.closeModal();" style="background: ${segData.color}; color: ${window.getContrastColor(segData.color)}; border: none; padding: 10px; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%;">Otevřít jízdní řád linky</button>
-            </div>`;
-
-        content.innerHTML = headerHtml + detailedHtml + ttButton;
+        // FIXED: The "Open Timetable" button has been entirely removed for the mobile info modal.
+        content.innerHTML = headerHtml + detailedHtml;
         document.getElementById('mobile-modal').style.display = 'flex';
     };
 
@@ -146,7 +143,7 @@ window.initializeMap = function() {
             L.polyline(latlngs, { color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
 
             const hitBoxWeight = window.isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
-            const interactionLine = L.polyline(latlngs, { color: '#000000', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset }).addTo(map);
+            const interactionLine = L.polyline(latlngs, { color: 'transparent', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset }).addTo(map);
 
             const tooltipContentHover = window.generateTooltipHtml(segData, false);
             const tooltipContentClick = window.generateTooltipHtml(segData, true);
@@ -186,9 +183,36 @@ window.initializeMap = function() {
         const tooltipHtml = `<div style="text-align: center; min-width: 80px;"><div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div></div>`;
         const clickPopupHtml = `<div style="text-align: center; min-width: 120px; pointer-events: auto;"><div style="font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${name}</div><div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div><div style="font-size: 10px; color: #94a3b8; margin-top: 8px;">Kliknutím na linku otevřete JŘ</div></div>`;
 
-        const marker = L.circleMarker(coords, { radius: isJunction ? 5.5 : 3.5, fillColor: "#ffffff", color: "#1a1a1a", weight: isJunction ? 3 : 2, opacity: 1, fillOpacity: 1 }).addTo(map);
-        if (!window.isMobile) marker.bindTooltip(tooltipHtml, { className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8] });
-        marker.bindPopup(clickPopupHtml, { className: 'custom-popup station-popup' });
+        // FIXED: Mobile stations are now easily clickable by drawing an invisible 20px fat circle on top
+        const marker = L.circleMarker(coords, { 
+            radius: isJunction ? 5.5 : 3.5, 
+            fillColor: "#ffffff", 
+            color: "#1a1a1a", 
+            weight: isJunction ? 3 : 2, 
+            opacity: 1, 
+            fillOpacity: 1,
+            interactive: !window.isMobile // Disable standard marker clicks on mobile to avoid double-firing
+        }).addTo(map);
+
+        let interactiveMarker = marker;
+
+        if (window.isMobile) {
+            interactiveMarker = L.circleMarker(coords, { 
+                radius: 25, 
+                color: 'transparent', 
+                fillColor: 'transparent', 
+                interactive: true 
+            }).addTo(map);
+            
+            // Forces the invisible fat station circle to sit above all the train lines
+            interactiveMarker.bringToFront();
+        }
+
+        if (!window.isMobile) {
+            marker.bindTooltip(tooltipHtml, { className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8] });
+        }
+        
+        interactiveMarker.bindPopup(clickPopupHtml, { className: 'custom-popup station-popup' });
     }
 
     const legend = L.control({position: 'bottomleft'});
