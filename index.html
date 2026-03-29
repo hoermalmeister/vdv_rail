@@ -18,27 +18,33 @@
         /* Map Tooltips & Popups */
         .leaflet-tooltip { background-color: rgba(25, 30, 36, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); border-radius: 8px; padding: 12px 16px; font-size: 13px; pointer-events: none; }
         .leaflet-tooltip::before, .leaflet-tooltip::after { display: none !important; }
-        .custom-popup .leaflet-popup-content-wrapper { background-color: rgba(25, 30, 36, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; border-radius: 8px; padding: 0; }
-        .custom-popup .leaflet-popup-content { margin: 12px 16px; font-size: 13px; min-width: 260px; }
-        .custom-popup .leaflet-popup-tip-container { display: none !important; }
-        .custom-popup a.leaflet-popup-close-button { color: #94a3b8 !important; }
 
+        /* The "Fixed" Click Popups */
+        .custom-popup .leaflet-popup-content-wrapper { background-color: rgba(25, 30, 36, 0.98); border: 1px solid rgba(255, 255, 255, 0.15); color: #f1f5f9; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8); border-radius: 8px; padding: 0; }
+        .custom-popup .leaflet-popup-content { margin: 12px 16px; font-size: 13px; min-width: 200px; }
+        .custom-popup .leaflet-popup-tip-container { display: none !important; }
+        .custom-popup a.leaflet-popup-close-button { color: #94a3b8 !important; top: 8px !important; right: 8px !important; }
+        .custom-popup a.leaflet-popup-close-button:hover { color: #ffffff !important; }
+
+        /* Internal Tooltip/Popup Styling */
         .tooltip-header { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px; }
-        .line-badge { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; transition: transform 0.1s; }
-        .line-badge:hover { transform: scale(1.05); }
+        .line-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; transition: transform 0.1s, filter 0.2s; border: 1px solid rgba(0,0,0,0.2); }
+        .line-badge:hover { transform: scale(1.05); filter: brightness(1.2); }
         .tooltip-segment { color: #94a3b8; margin-bottom: 8px; font-size: 12px; }
         .tooltip-destinations { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; }
         .dest-group { margin-top: 4px; }
         .dest-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
         .dest-count { font-weight: 700; color: #38bdf8; margin-left: 12px; }
         .dest-trains { font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3); padding: 6px 8px; border-radius: 4px; margin: 2px 0 8px 0; border-left: 2px solid rgba(255, 255, 255, 0.1); }
-        .station-tooltip { background-color: #ffffff; color: #1e293b; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; min-width: 60px; pointer-events: auto; }
+
+        /* Simple Hover for Stations */
+        .simple-station-tooltip { background-color: #ffffff; color: #1e293b; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; pointer-events: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
         /* Overlays & Legends */
-        .map-overlay { position: absolute; top: 20px; right: 20px; z-index: 1000; background: rgba(25, 30, 36, 0.95); color: white; padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); max-width: 320px; pointer-events: none; }
+        .map-overlay { position: absolute; top: 20px; right: 20px; z-index: 1000; background: rgba(25, 30, 36, 0.95); color: white; padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); max-width: 320px; pointer-events: none; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
         .map-overlay h1 { margin: 0 0 8px 0; font-size: 18px; }
         .map-overlay p { margin: 0; font-size: 13px; color: #94a3b8; }
-        .map-legend { background: rgba(25, 30, 36, 0.95); color: #f1f5f9; padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); touch-action: pan-y; }
+        .map-legend { background: rgba(25, 30, 36, 0.95); color: #f1f5f9; padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); touch-action: pan-y; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .legend-title { font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid #334155; padding-bottom: 6px; cursor: pointer; display: flex; justify-content: space-between; }
         .legend-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
         .legend-stops { font-size: 11px; color: #cbd5e1; font-weight: 600;}
@@ -49,28 +55,24 @@
         .timetable-header { padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: #1e293b; border-radius: 12px 12px 0 0; }
         .timetable-header h2 { margin: 0; font-size: 20px; color: white; display: flex; align-items: center; gap: 12px; }
 
-        /* Timetable Controls (Tabs for Direction) */
         .timetable-controls { padding: 12px 24px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; gap: 10px; overflow-x: auto; }
         .dir-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; transition: 0.2s; }
         .dir-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
 
-        /* The Grid */
         .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; }
         table.modern-tt { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; color: #e2e8f0; }
         table.modern-tt th { background: #1e293b; padding: 12px 8px; font-weight: 600; color: #cbd5e1; border-bottom: 2px solid #334155; border-right: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; z-index: 5; white-space: nowrap; }
         table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
         table.modern-tt tbody tr:hover { background: rgba(255,255,255,0.03); }
 
-        /* Sticky Station Column */
         table.modern-tt th:first-child, table.modern-tt td:first-child { position: sticky; left: 0; text-align: left; background: #1e293b; border-right: 2px solid #334155; font-weight: 600; z-index: 10; padding-left: 24px; }
-        table.modern-tt th:first-child { z-index: 15; } /* Corner cell */
+        table.modern-tt th:first-child { z-index: 15; }
 
         .tt-note-row th { font-size: 11px; color: #94a3b8; background: #0f172a; top: 43px; border-bottom: 1px solid #334155; }
         .tt-time { font-family: monospace; font-size: 14px; }
         .tt-req { color: #facc15; font-size: 10px; vertical-align: super; margin-right: 2px; }
         .tt-pass { color: #475569; }
 
-        /* Timetable Footer (Notes Legend) */
         .timetable-footer { padding: 12px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 16px; }
         .note-item { display: flex; gap: 6px; align-items: baseline; }
         .note-sym { font-weight: 700; color: #cbd5e1; }
@@ -94,7 +96,7 @@
 
     <div class="map-overlay">
         <h1>VDV Vlakové linky</h1>
-        <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím</b> zobrazíte detail.</p>
+        <p>Najetím na linku zobrazíte detail. <b>Kliknutím na stanici</b> ji připnete a můžete otevřít jízdní řád celé linky.</p>
     </div>
 
     <div id="mobile-modal" class="timetable-overlay" style="z-index: 3000;">
@@ -107,12 +109,9 @@
                 <h2 id="tt-title">Linka</h2>
                 <button onclick="closeTimetable()" style="background:none; border:none; color:#94a3b8; font-size:28px; cursor:pointer;">&times;</button>
             </div>
-            <div class="timetable-controls" id="tt-controls">
-                </div>
-            <div class="timetable-content" id="tt-content">
-                </div>
-            <div class="timetable-footer" id="tt-footer">
-                </div>
+            <div class="timetable-controls" id="tt-controls"></div>
+            <div class="timetable-content" id="tt-content"></div>
+            <div class="timetable-footer" id="tt-footer"></div>
         </div>
     </div>
 
@@ -168,12 +167,14 @@
             const content = document.getElementById('tt-content');
             const footer = document.getElementById('tt-footer');
 
+            // Close popups on map when opening timetable
+            map.closePopup();
+
             const lineColor = window.lineColorsDict[lineName] || '#ffffff';
             const textColor = getContrastColor(lineColor);
 
-            title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${textColor}; font-size: 16px; padding: 4px 12px;">${lineName}</span> Jízdní řád`;
+            title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${textColor}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
 
-            // 1. Gather all Train IDs for this line
             let lineTrains = new Set();
             window.routesData.forEach(r => {
                 if (r.lineName === lineName || r.changesTo === lineName) {
@@ -181,7 +182,6 @@
                 }
             });
 
-            // 2. Extract train data from master JSON
             let extractedTrains = [];
             for (let pdf in window.timetablesData) {
                 let tDict = window.timetablesData[pdf].trains;
@@ -201,85 +201,110 @@
                 return;
             }
 
-            // 3. Group trains by Starting Station (Direction)
-            let directions = {};
-            extractedTrains.forEach(train => {
-                if(train.stops && train.stops.length > 0) {
-                    let startStation = train.stops[0].station;
-                    let endStation = train.stops[train.stops.length - 1].station;
-                    let dirKey = `Z: ${startStation}`;
+            // --- TWO-DIRECTION GROUPING ALGORITHM ---
+            let dir1Trains = [];
+            let dir2Trains = [];
 
-                    if(!directions[dirKey]) directions[dirKey] = { label: `Směr ${endStation}`, trains: [] };
-                    directions[dirKey].trains.push(train);
+            // 1. Find the longest train to act as our directional reference "compass"
+            let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
+            let refStops = refTrain.stops.map(s => s.station);
+
+            // 2. Classify all trains as Forward (Dir1) or Backward (Dir2) based on the compass
+            extractedTrains.forEach(t => {
+                let tStops = t.stops.map(s => s.station);
+                let shared = tStops.filter(s => refStops.includes(s));
+
+                if (shared.length >= 2) {
+                    let refIdx1 = refStops.indexOf(shared[0]);
+                    let refIdx2 = refStops.indexOf(shared[shared.length - 1]);
+                    let tIdx1 = tStops.indexOf(shared[0]);
+                    let tIdx2 = tStops.indexOf(shared[shared.length - 1]);
+
+                    // If the chronological order of stations matches the reference train's order
+                    if ((refIdx1 < refIdx2) === (tIdx1 < tIdx2)) {
+                        dir1Trains.push(t);
+                    } else {
+                        dir2Trains.push(t);
+                    }
+                } else {
+                    dir1Trains.push(t); // Fallback for very short disjoint trains
                 }
             });
 
-            // Build Controls (Tabs)
+            // 3. Build a perfect master station list for each direction
+            function buildMaster(trainsList) {
+                if(trainsList.length === 0) return [];
+                let master = [];
+                // Sort by length to build the backbone first
+                let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
+                sorted.forEach(t => {
+                    let lastIndex = -1;
+                    t.stops.forEach(stop => {
+                        let idx = master.indexOf(stop.station);
+                        if (idx === -1) {
+                            master.splice(lastIndex + 1, 0, stop.station);
+                            lastIndex++;
+                        } else {
+                            lastIndex = idx;
+                        }
+                    });
+                });
+                return master;
+            }
+
+            let master1 = buildMaster(dir1Trains);
+            let master2 = buildMaster(dir2Trains);
+
+            let directions = {};
+            if (dir1Trains.length > 0) {
+                directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
+            }
+            if (dir2Trains.length > 0) {
+                directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
+            }
+
             let dirKeys = Object.keys(directions);
             controls.innerHTML = dirKeys.map((key, idx) =>
                 `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="renderTimetableGrid('${key}')">${key}</button>`
             ).join('');
 
-            // Store for rendering
             window.currentTimetableData = directions;
-
-            // Render first tab
             renderTimetableGrid(dirKeys[0]);
             ttModal.style.display = 'flex';
         };
 
         window.renderTimetableGrid = function(dirKey) {
-            // Update Tab UI
             document.querySelectorAll('.dir-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if(btn.innerText === dirKey) btn.classList.add('active');
             });
 
-            const trains = window.currentTimetableData[dirKey].trains;
+            const data = window.currentTimetableData[dirKey];
+            const trains = data.trains;
+            const masterStations = data.masterStations;
             const content = document.getElementById('tt-content');
             const footer = document.getElementById('tt-footer');
 
-            // 1. Build Master Station List for this direction (Topological merge)
-            let masterStations = [];
-            trains.forEach(t => {
-                let lastIndex = -1;
-                t.stops.forEach(stop => {
-                    let idx = masterStations.indexOf(stop.station);
-                    if (idx === -1) {
-                        masterStations.splice(lastIndex + 1, 0, stop.station);
-                        lastIndex++;
-                    } else {
-                        lastIndex = idx;
-                    }
-                });
-            });
-
-            // 2. Collect used notes
             let usedNotes = new Set();
 
-            // 3. Sort trains by departure time of their first stop
+            // Sort trains chronologically by their first stop time
             trains.sort((a, b) => {
-                let timeA = parseFloat(a.stops[0].time.replace('.', '.'));
-                let timeB = parseFloat(b.stops[0].time.replace('.', '.'));
+                let timeA = parseFloat(a.stops[0].time.replace(':', '.')) || 9999;
+                let timeB = parseFloat(b.stops[0].time.replace(':', '.')) || 9999;
                 return timeA - timeB;
             });
 
-            // 4. Build Table HTML
             let html = `<table class="modern-tt"><thead><tr><th>Stanice</th>`;
-
-            // Train IDs Row
             trains.forEach(t => { html += `<th>${t.id}</th>`; });
             html += `</tr><tr class="tt-note-row"><th></th>`;
 
-            // Operation Notes Row
             trains.forEach(t => {
-                let notesStr = (t.operation_notes || []).join(' ');
-                (t.operation_notes || []).forEach(n => usedNotes.add(n));
+                let notesStr = (t.notes || []).join(' ');
+                (t.notes || []).forEach(n => usedNotes.add(n));
                 html += `<th>${notesStr}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
-            // Data Rows
             masterStations.forEach(station => {
                 html += `<tr><td>${station}</td>`;
                 trains.forEach(t => {
@@ -297,16 +322,12 @@
             html += `</tbody></table>`;
             content.innerHTML = html;
 
-            // 5. Build Legend
             let footerHtml = '';
             usedNotes.forEach(note => {
                 let meaning = window.notesDict[note] || "Neznámá poznámka";
                 footerHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${meaning}</div>`;
             });
-
-            // Add request stop legend item by default
             footerHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:14px;">×</span> Zastávka na znamení</div>`;
-
             footer.innerHTML = footerHtml;
         };
 
@@ -320,6 +341,29 @@
             const stationLines = {};
             const lineEndpoints = {};
 
+            // Helper to generate the old Hover/Click HTML for lines
+            function generateLineTooltipHtml(segData, isClick = false) {
+                let destinationsHtml = "";
+                for (const [routeLabel, data] of Object.entries(segData.destinations)) {
+                    const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
+                    let trainsHtml = isClick ? `<div class="dest-trains">${uniqueTrains}</div>` : "";
+                    destinationsHtml += `
+                        <div class="dest-group">
+                            <div class="dest-row"><span>${routeLabel}</span><span class="dest-right"><span class="dest-count">${data.count}</span></span></div>
+                            ${trainsHtml}
+                        </div>`;
+                }
+                const badgeTextColor = getContrastColor(segData.color);
+                return `
+                    <div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; pointer-events:none;">${segData.lineName}</span></div>
+                    <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
+                    <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
+                    <div class="tooltip-destinations">
+                        <div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>
+                        ${destinationsHtml}
+                    </div>`;
+            }
+
             window.routesData.forEach(route => {
                 window.lineColorsDict[route.lineName] = route.color;
                 if (route.changesTo) window.lineColorsDict[route.changesTo] = route.changeColor || route.color;
@@ -328,21 +372,14 @@
                 const firstStation = route.waypoints[0];
                 const lastStation = route.waypoints[route.waypoints.length - 1];
 
-                // Legend Tracking
                 if (route.changeAt && route.changesTo) {
                     const changeIndex = route.waypoints.indexOf(route.changeAt);
                     if (changeIndex !== -1) {
-                        if (!lineEndpoints[route.lineName] || changeIndex + 1 > lineEndpoints[route.lineName].length) {
-                            lineEndpoints[route.lineName] = { length: changeIndex + 1, start: firstStation, end: route.changeAt, color: route.color };
-                        }
-                        if (!lineEndpoints[route.changesTo] || route.waypoints.length - changeIndex > lineEndpoints[route.changesTo].length) {
-                            lineEndpoints[route.changesTo] = { length: route.waypoints.length - changeIndex, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
-                        }
+                        if (!lineEndpoints[route.lineName] || changeIndex + 1 > lineEndpoints[route.lineName].length) lineEndpoints[route.lineName] = { length: changeIndex + 1, start: firstStation, end: route.changeAt, color: route.color };
+                        if (!lineEndpoints[route.changesTo] || route.waypoints.length - changeIndex > lineEndpoints[route.changesTo].length) lineEndpoints[route.changesTo] = { length: route.waypoints.length - changeIndex, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
                     }
                 } else {
-                    if (!lineEndpoints[route.lineName] || route.waypoints.length > lineEndpoints[route.lineName].length) {
-                        lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
-                    }
+                    if (!lineEndpoints[route.lineName] || route.waypoints.length > lineEndpoints[route.lineName].length) lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
                 }
 
                 let currentLineName = route.lineName;
@@ -353,10 +390,19 @@
                     const st1 = route.waypoints[i], st2 = route.waypoints[i + 1];
                     if (!window.stationsData[st1] || !window.stationsData[st2]) continue;
 
-                    if (route.changeAt && (st1 === route.changeAt || hasChanged)) {
-                        currentLineName = route.changesTo;
-                        currentColor = route.changeColor || route.color;
-                        hasChanged = true;
+                    if (route.changeAt && (st1 === route.changeAt || hasChanged)) { currentLineName = route.changesTo; currentColor = route.changeColor || route.color; hasChanged = true; }
+
+                    let segmentRouteLabel = "";
+                    if (route.changesTo && route.changeAt) {
+                        if (!hasChanged) {
+                            segmentRouteLabel = `${firstStation} ↔ ${route.changeAt} <span class="line-badge" style="background-color: ${route.changeColor}; color: ${getContrastColor(route.changeColor||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px; pointer-events:none;">${route.changesTo}</span> ↔ ${lastStation}`;
+                        } else {
+                            segmentRouteLabel = `${firstStation} ↔ <span class="line-badge" style="background-color: ${route.color}; color: ${getContrastColor(route.color||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px; pointer-events:none;">${route.lineName}</span> ${route.changeAt} ↔ ${lastStation}`;
+                        }
+                    } else {
+                        const endA = firstStation < lastStation ? firstStation : lastStation;
+                        const endB = firstStation < lastStation ? lastStation : firstStation;
+                        segmentRouteLabel = `${endA} ↔ ${endB}`;
                     }
 
                     if (!stationLines[st1]) stationLines[st1] = new Set();
@@ -364,27 +410,25 @@
                     stationLines[st1].add(currentLineName);
                     stationLines[st2].add(currentLineName);
 
-                    const isReversed = (window.stationsData[st1][1] > window.stationsData[st2][1]) ||
-                                       (window.stationsData[st1][1] === window.stationsData[st2][1] && window.stationsData[st1][0] > window.stationsData[st2][0]);
-
+                    const isReversed = (window.stationsData[st1][1] > window.stationsData[st2][1]) || (window.stationsData[st1][1] === window.stationsData[st2][1] && window.stationsData[st1][0] > window.stationsData[st2][0]);
                     const nodeA = isReversed ? st2 : st1;
                     const nodeB = isReversed ? st1 : st2;
                     const segmentKey = `${nodeA}---${nodeB}`;
 
                     if (!segmentsMap[segmentKey]) segmentsMap[segmentKey] = {};
-                    if (!segmentsMap[segmentKey][currentLineName]) {
-                        segmentsMap[segmentKey][currentLineName] = { lineName: currentLineName, connections: 0, color: currentColor, nodeA: nodeA, nodeB: nodeB, destinations: {} };
-                    }
+                    if (!segmentsMap[segmentKey][currentLineName]) segmentsMap[segmentKey][currentLineName] = { lineName: currentLineName, connections: 0, color: currentColor, nodeA: nodeA, nodeB: nodeB, destinations: {} };
 
                     segmentsMap[segmentKey][currentLineName].connections += route.connections;
+                    if (!segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel]) segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel] = { count: 0, trains: [] };
+
+                    segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel].count += route.connections;
+                    if (route.trainNames) segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel].trains.push(...route.trainNames);
                 }
             });
 
-            // Draw Lines
             Object.entries(segmentsMap).forEach(([segKey, linesObj]) => {
                 const linesOnSegment = Object.values(linesObj).sort((a, b) => a.lineName.localeCompare(b.lineName));
                 let totalThickness = 0; const gap = 2;
-
                 linesOnSegment.forEach(seg => { seg.thickness = (seg.connections * 0.22) + 2.5; totalThickness += seg.thickness; });
                 totalThickness += (linesOnSegment.length - 1) * gap;
                 let currentOffset = -totalThickness / 2;
@@ -399,19 +443,23 @@
                     const hitBoxWeight = isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
                     const interactionLine = L.polyline(latlngs, { color: '#000', weight: hitBoxWeight, opacity: 0, offset: offset }).addTo(map);
 
-                    // Re-use simple tooltip logic for map hover
-                    const tooltipHtml = `<div class="tooltip-header"><span class="line-badge" style="background-color:${segData.color}; color:${getContrastColor(segData.color)};" onclick="openTimetable('${segData.lineName}')">${segData.lineName}</span></div>
-                                         <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
-                                         <div style="font-size:11px; color:#94a3b8;">Kliknutím zobrazíte jízdní řád linky</div>`;
+                    const hoverHtml = generateLineTooltipHtml(segData, false);
+                    const clickHtml = generateLineTooltipHtml(segData, true) + `
+                        <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                            <button onclick="openTimetable('${segData.lineName}')" style="background: ${segData.color}; color: ${getContrastColor(segData.color)}; border: none; padding: 8px; border-radius: 4px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity 0.2s;">Otevřít jízdní řád linky</button>
+                        </div>`;
 
-                    interactionLine.bindTooltip(tooltipHtml, { sticky: true });
-                    interactionLine.on('click', () => window.openTimetable(segData.lineName));
+                    interactionLine.bindTooltip(hoverHtml, { sticky: true });
+                    interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
+
+                    interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
+                    interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
 
                     currentOffset += segData.thickness + gap;
                 });
             });
 
-            // Draw Stations (Adding onclick to the badges)
+            // Draw Stations (Hover Tooltip AND Fixed Click Popup)
             for (const [name, coords] of Object.entries(window.stationsData)) {
                 const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
                 const isJunction = passingLines.length > 1;
@@ -426,17 +474,22 @@
                     rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
                 }
 
-                const tooltipHtml = `<div style="text-align: center; min-width: 80px; pointer-events: auto;">
-                                        <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div>
+                // The popup that stays open on click
+                const clickPopupHtml = `<div style="text-align: center; min-width: 120px; pointer-events: auto;">
+                                        <div style="font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${name}</div>
                                         <div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div>
+                                        <div style="font-size: 10px; color: #94a3b8; margin-top: 8px;">Kliknutím na linku otevřete JŘ</div>
                                      </div>`;
 
-                L.circleMarker(coords, { radius: isJunction ? 5.5 : 3.5, fillColor: "#ffffff", color: "#1a1a1a", weight: isJunction ? 3 : 2, opacity: 1, fillOpacity: 1 })
-                 .bindTooltip(tooltipHtml, { className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8], interactive: true })
-                 .addTo(map);
+                const marker = L.circleMarker(coords, { radius: isJunction ? 5.5 : 3.5, fillColor: "#ffffff", color: "#1a1a1a", weight: isJunction ? 3 : 2, opacity: 1, fillOpacity: 1 }).addTo(map);
+
+                // Simple text for hover
+                marker.bindTooltip(name, { className: 'simple-station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8] });
+                // Pin open on click
+                marker.bindPopup(clickPopupHtml, { className: 'custom-popup station-popup' });
             }
 
-            // Map Legend (Adding onclick to the badges)
+            // Legend
             const legend = L.control({position: 'bottomleft'});
             legend.onAdd = function () {
                 const div = L.DomUtil.create('div', 'map-legend');
