@@ -29,39 +29,58 @@ window.openTimetable = function(lineName) {
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
 
-                // FLAWLESS SPLIT JOURNEY LOGIC (No station filtering, just array slicing)
+                // DIRECTION-AWARE SPLIT JOURNEY LOGIC
                 let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
                 
                 if (matchedRoute && matchedRoute.changeAt) {
                     let changeIdx = tClone.stops.findIndex(s => s.station === matchedRoute.changeAt);
                     
                     if (changeIdx !== -1) {
-                        if (matchedRoute.lineName === lineName) {
-                            // First Half: Slice array up to changeAt
+                        // 1. Identify which half of the physical line the train hits first
+                        let rChangeIdx = matchedRoute.waypoints.indexOf(matchedRoute.changeAt);
+                        let line1Waypoints = matchedRoute.waypoints.slice(0, rChangeIdx + 1);
+                        let line2Waypoints = matchedRoute.waypoints.slice(rChangeIdx);
+
+                        let trainStartDir = 0; 
+                        for (let stop of tClone.stops) {
+                            if (stop.station === matchedRoute.changeAt) continue;
+                            if (line1Waypoints.includes(stop.station)) { trainStartDir = 1; break; }
+                            if (line2Waypoints.includes(stop.station)) { trainStartDir = 2; break; }
+                        }
+
+                        // 2. Compare train's actual direction with the requested line Name
+                        let isFirstHalfOfArray = false;
+                        if (matchedRoute.lineName === lineName) { 
+                            isFirstHalfOfArray = (trainStartDir === 1); 
+                        } else if (matchedRoute.changesTo === lineName) { 
+                            isFirstHalfOfArray = (trainStartDir === 2); 
+                        }
+
+                        // 3. Slice
+                        if (isFirstHalfOfArray) {
                             let finalStop = tClone.stops[tClone.stops.length - 1];
                             tClone.stops = tClone.stops.slice(0, changeIdx + 1);
                             
-                            // If train originally went further, map it to Směřuje do
                             if (finalStop.station !== matchedRoute.changeAt) {
+                                let nextLine = (matchedRoute.lineName === lineName) ? matchedRoute.changesTo : matchedRoute.lineName;
                                 tClone.continuation = {
                                     station: finalStop.station,
                                     time: finalStop.arrival || finalStop.time || finalStop.departure,
-                                    lineBadge: matchedRoute.changesTo,
-                                    badgeColor: matchedRoute.changeColor || window.lineColorsDict[matchedRoute.changesTo] || '#94a3b8'
+                                    lineBadge: nextLine,
+                                    badgeColor: matchedRoute.changeColor || window.lineColorsDict[nextLine] || '#94a3b8'
                                 };
                             }
-                        } else if (matchedRoute.changesTo === lineName) {
-                            // Second Half: Slice array from changeAt to end
+                        } else {
                             let firstStop = tClone.stops[0];
                             tClone.stops = tClone.stops.slice(changeIdx);
                             
-                            // If train originally started earlier, map it to Ze směru
                             if (firstStop.station !== matchedRoute.changeAt) {
+                                let prevLine = (matchedRoute.lineName === lineName) ? matchedRoute.changesTo : matchedRoute.lineName;
                                 tClone.origin = {
                                     station: firstStop.station,
                                     time: firstStop.departure || firstStop.time || firstStop.arrival,
-                                    lineBadge: matchedRoute.lineName,
-                                    badgeColor: matchedRoute.color || window.lineColorsDict[matchedRoute.lineName] || '#94a3b8'
+                                    lineBadge: prevLine,
+                                    badgeColor: matchedRoute.color || window.lineColorsDict[prevLine] || '#94a3b8'
                                 };
                             }
                         }
@@ -95,7 +114,7 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
-    // Build Master Station List naturally from the sliced trains
+    // Build Master Station List Naturally
     function buildMaster(trainsList) {
         let master = [];
         let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
@@ -194,7 +213,7 @@ window.renderTimetableGrid = function(dirKey) {
         trains.forEach(t => {
             let s_list = t.stops.filter(s => s.station === station);
             
-            // FLAWLESS SKIP (|) MATH
+            // SKIP (|) BOUNDS CHECK
             let firstStopIdx = masterStations.indexOf(t.stops[0].station);
             let lastStopIdx = masterStations.indexOf(t.stops[t.stops.length - 1].station);
             let currentStIdx = masterStations.indexOf(station);
