@@ -29,17 +29,19 @@ window.openTimetable = function(lineName) {
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
 
-                // PERFECT SLICING LOGIC for line-changing trains
+                // FLAWLESS SPLIT JOURNEY LOGIC (No station filtering, just array slicing)
                 let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
                 
                 if (matchedRoute && matchedRoute.changeAt) {
                     let changeIdx = tClone.stops.findIndex(s => s.station === matchedRoute.changeAt);
+                    
                     if (changeIdx !== -1) {
                         if (matchedRoute.lineName === lineName) {
-                            // Viewing first half: Slice out the end
+                            // First Half: Slice array up to changeAt
                             let finalStop = tClone.stops[tClone.stops.length - 1];
                             tClone.stops = tClone.stops.slice(0, changeIdx + 1);
                             
+                            // If train originally went further, map it to Směřuje do
                             if (finalStop.station !== matchedRoute.changeAt) {
                                 tClone.continuation = {
                                     station: finalStop.station,
@@ -49,10 +51,11 @@ window.openTimetable = function(lineName) {
                                 };
                             }
                         } else if (matchedRoute.changesTo === lineName) {
-                            // Viewing second half: Slice out the beginning
+                            // Second Half: Slice array from changeAt to end
                             let firstStop = tClone.stops[0];
                             tClone.stops = tClone.stops.slice(changeIdx);
                             
+                            // If train originally started earlier, map it to Ze směru
                             if (firstStop.station !== matchedRoute.changeAt) {
                                 tClone.origin = {
                                     station: firstStop.station,
@@ -77,6 +80,7 @@ window.openTimetable = function(lineName) {
         return;
     }
 
+    // Direction Grouping
     let dir1Trains = []; let dir2Trains = [];
     let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
     let refStops = refTrain.stops.map(s => s.station);
@@ -91,16 +95,17 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
-    // BUILD MASTER LIST WITHOUT FILTERING
+    // Build Master Station List naturally from the sliced trains
     function buildMaster(trainsList) {
         let master = [];
         let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
         sorted.forEach(t => {
             let lastIndex = -1;
-            t.stops.forEach(s => {
-                let idx = master.indexOf(s.station);
+            let uniqueStops = [...new Set(t.stops.map(s => s.station))];
+            uniqueStops.forEach(st => {
+                let idx = master.indexOf(st);
                 if (idx === -1) { 
-                    master.splice(lastIndex + 1, 0, s.station); 
+                    master.splice(lastIndex + 1, 0, st); 
                     lastIndex++; 
                 } else { 
                     lastIndex = idx; 
@@ -139,7 +144,7 @@ window.renderTimetableGrid = function(dirKey) {
 
     let usedNotes = new Set();
     
-    // --- RESTORED ORIGINAL CHRONOLOGICAL SORTING ---
+    // RESTORED STABLE CHRONOLOGICAL SORTING
     trains.sort((a, b) => {
         let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (sharedSt) {
@@ -169,7 +174,7 @@ window.renderTimetableGrid = function(dirKey) {
     });
     html += `</tr></thead><tbody>`;
 
-    // AUX ROW: Ze směru (Incoming trains from other lines)
+    // AUX ROW: Ze směru
     let hasOrigins = trains.some(t => t.origin);
     if (hasOrigins) {
         html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
@@ -213,7 +218,6 @@ window.renderTimetableGrid = function(dirKey) {
                     }
                 }
             } else {
-                // Check if current station is literally between the train's starting station and ending station
                 if (currentStIdx > firstStopIdx && currentStIdx < lastStopIdx) {
                     html += `<td><span class="tt-pass">|</span></td>`;
                 } else {
@@ -224,7 +228,7 @@ window.renderTimetableGrid = function(dirKey) {
         html += `</tr>`;
     });
 
-    // AUX ROW: Směřuje do (Trains continuing to other lines)
+    // AUX ROW: Směřuje do
     let hasContinuations = trains.some(t => t.continuation);
     if (hasContinuations) {
         html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
