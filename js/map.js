@@ -1,25 +1,86 @@
 function initializeMap() {
     const map = L.map('map').setView([49.4, 15.6], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
-    window.map = map; // Expose globally
+    window.map = map;
 
     const segmentsMap = {};
     const stationLines = {};
-    const lineEndpoints = {};
+    window.lineEndpoints = {}; // Made global for the mobile modal
 
-    function generateLineTooltipHtml(segData, isClick = false) {
+    // Expose tooltip generator to window so mobile modal can use it
+    window.generateLineTooltipHtml = function(segData, isClick = false) {
         let destinationsHtml = "";
         for (const [routeLabel, data] of Object.entries(segData.destinations)) {
             const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
             let trainsHtml = isClick ? `<div class="dest-trains">${uniqueTrains}</div>` : "";
             destinationsHtml += `<div class="dest-group"><div class="dest-row"><span>${routeLabel}</span><span class="dest-right"><span class="dest-count">${data.count}</span></span></div>${trainsHtml}</div>`;
         }
-        const badgeTextColor = getContrastColor(segData.color);
+        const badgeTextColor = window.getContrastColor(segData.color);
         return `<div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; pointer-events:none;">${segData.lineName}</span></div>
                 <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
                 <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
                 <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>${destinationsHtml}</div>`;
     }
+
+    // --- RESTORED MOBILE MODAL LOGIC ---
+    window.openMobileModal = function(nodeA, nodeB, linesOnSegment) {
+        const modal = document.getElementById('mobile-modal');
+        const content = document.getElementById('mobile-modal-content');
+
+        let buttonsHtml = linesOnSegment.map((seg, idx) => {
+            const textColor = window.getContrastColor(seg.color);
+            let endpointsText = "Zobrazit spojení...";
+            if (window.lineEndpoints[seg.lineName]) {
+                const data = window.lineEndpoints[seg.lineName];
+                const endA = data.start < data.end ? data.start : data.end;
+                const endB = data.start < data.end ? data.end : data.start;
+                endpointsText = `${endA} ↔ ${endB}`;
+            }
+            return `<button class="modal-line-btn" onclick="showMobileDetails(${idx})">
+                        <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
+                        <span class="btn-text" style="font-weight: 600;">${endpointsText}</span>
+                    </button>`;
+        }).join('');
+
+        content.innerHTML = `
+            <div class="modal-header">
+                <h3>${nodeA} ↔ ${nodeB}</h3>
+                <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Na tomto úseku jezdí více linek. Kterou chcete zobrazit?</p>
+            <div class="modal-line-list">${buttonsHtml}</div>
+        `;
+
+        window.currentSegmentLinesData = linesOnSegment;
+        modal.style.display = 'flex';
+    };
+
+    window.showMobileDetails = function(idx, isSingle = false) {
+        const segData = window.currentSegmentLinesData[idx];
+        const content = document.getElementById('mobile-modal-content');
+        
+        const detailedHtml = window.generateLineTooltipHtml(segData, true);
+
+        let headerHtml = '';
+        if (isSingle) {
+            headerHtml = `<div class="modal-header" style="justify-content: flex-end;">
+                            <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
+                          </div>`;
+        } else {
+            headerHtml = `<div class="modal-header">
+                            <button onclick="openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="modal-back-btn">← Zpět</button>
+                            <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
+                          </div>`;
+        }
+
+        content.innerHTML = headerHtml + detailedHtml;
+        document.getElementById('mobile-modal').style.display = 'flex';
+    };
+
+    window.closeSegmentModal = function() {
+        document.getElementById('mobile-modal').style.display = 'none';
+    };
+    // -----------------------------------
 
     window.routesData.forEach(route => {
         window.lineColorsDict[route.lineName] = route.color;
@@ -32,11 +93,11 @@ function initializeMap() {
         if (route.changeAt && route.changesTo) {
             const changeIndex = route.waypoints.indexOf(route.changeAt);
             if (changeIndex !== -1) {
-                if (!lineEndpoints[route.lineName] || changeIndex + 1 > lineEndpoints[route.lineName].length) lineEndpoints[route.lineName] = { length: changeIndex + 1, start: firstStation, end: route.changeAt, color: route.color };
-                if (!lineEndpoints[route.changesTo] || route.waypoints.length - changeIndex > lineEndpoints[route.changesTo].length) lineEndpoints[route.changesTo] = { length: route.waypoints.length - changeIndex, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
+                if (!window.lineEndpoints[route.lineName] || changeIndex + 1 > window.lineEndpoints[route.lineName].length) window.lineEndpoints[route.lineName] = { length: changeIndex + 1, start: firstStation, end: route.changeAt, color: route.color };
+                if (!window.lineEndpoints[route.changesTo] || route.waypoints.length - changeIndex > window.lineEndpoints[route.changesTo].length) window.lineEndpoints[route.changesTo] = { length: route.waypoints.length - changeIndex, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
             }
         } else {
-            if (!lineEndpoints[route.lineName] || route.waypoints.length > lineEndpoints[route.lineName].length) lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
+            if (!window.lineEndpoints[route.lineName] || route.waypoints.length > window.lineEndpoints[route.lineName].length) window.lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
         }
 
         let currentLineName = route.lineName;
@@ -51,8 +112,8 @@ function initializeMap() {
 
             let segmentRouteLabel = "";
             if (route.changesTo && route.changeAt) {
-                if (!hasChanged) segmentRouteLabel = `${firstStation} ↔ ${route.changeAt} <span class="line-badge" style="background-color: ${route.changeColor}; color: ${getContrastColor(route.changeColor||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px; pointer-events:none;">${route.changesTo}</span> ↔ ${lastStation}`;
-                else segmentRouteLabel = `${firstStation} ↔ <span class="line-badge" style="background-color: ${route.color}; color: ${getContrastColor(route.color||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px; pointer-events:none;">${route.lineName}</span> ${route.changeAt} ↔ ${lastStation}`;
+                if (!hasChanged) segmentRouteLabel = `${firstStation} ↔ ${route.changeAt} <span class="line-badge" style="background-color: ${route.changeColor}; color: ${window.getContrastColor(route.changeColor||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px; pointer-events:none;">${route.changesTo}</span> ↔ ${lastStation}`;
+                else segmentRouteLabel = `${firstStation} ↔ <span class="line-badge" style="background-color: ${route.color}; color: ${window.getContrastColor(route.color||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px; pointer-events:none;">${route.lineName}</span> ${route.changeAt} ↔ ${lastStation}`;
             } else {
                 const endA = firstStation < lastStation ? firstStation : lastStation;
                 const endB = firstStation < lastStation ? lastStation : firstStation;
@@ -96,14 +157,26 @@ function initializeMap() {
             const hitBoxWeight = window.isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
             const interactionLine = L.polyline(latlngs, { color: '#000', weight: hitBoxWeight, opacity: 0, offset: offset }).addTo(map);
 
-            const hoverHtml = generateLineTooltipHtml(segData, false);
-            const clickHtml = generateLineTooltipHtml(segData, true); 
+            const hoverHtml = window.generateLineTooltipHtml(segData, false);
+            const clickHtml = window.generateLineTooltipHtml(segData, true); 
 
-            interactionLine.bindTooltip(hoverHtml, { sticky: true });
-            interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
+            // RESTORED: Mobile vs Desktop click split
+            if (!window.isMobile) {
+                interactionLine.bindTooltip(hoverHtml, { sticky: true });
+                interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
 
-            interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
-            interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
+                interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
+                interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
+            } else {
+                interactionLine.on('click', function() {
+                    if (linesOnSegment.length === 1) {
+                        window.currentSegmentLinesData = linesOnSegment;
+                        window.showMobileDetails(0, true);
+                    } else {
+                        window.openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                    }
+                });
+            }
 
             currentOffset += segData.thickness + gap;
         });
@@ -118,7 +191,7 @@ function initializeMap() {
             const chunk = passingLines.slice(i, i + 3);
             const badgesHtml = chunk.map(line => {
                 const bgColor = window.lineColorsDict[line] || '#cccccc';
-                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${getContrastColor(bgColor)}; margin: 2px;" onclick="openTimetable('${line}')">${line}</span>`;
+                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px;" onclick="openTimetable('${line}')">${line}</span>`;
             }).join('');
             rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
         }
@@ -142,23 +215,26 @@ function initializeMap() {
 
         let html = `<div class="legend-title" id="legend-toggle"><span>Linky a konečné stanice</span><span class="legend-toggle-icon">▼</span></div><div class="legend-content" id="legend-content">`;
 
-        Object.keys(lineEndpoints).sort().forEach(line => {
-            const data = lineEndpoints[line];
+        Object.keys(window.lineEndpoints).sort().forEach(line => {
+            const data = window.lineEndpoints[line];
             const endA = data.start < data.end ? data.start : data.end;
             const endB = data.start < data.end ? data.end : data.start;
             html += `<div class="legend-row">
-                        <span class="line-badge" style="background-color: ${data.color}; color: ${getContrastColor(data.color)}; min-width: 32px;" onclick="openTimetable('${line}')">${line}</span>
+                        <span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px;" onclick="openTimetable('${line}')">${line}</span>
                         <span class="legend-stops">${endA} ↔ ${endB}</span>
                      </div>`;
         });
         
         div.innerHTML = html + '</div>';
+        
+        // RESTORED: Legend toggle logic
         setTimeout(() => {
             div.querySelector('#legend-toggle').addEventListener('click', function() {
                 this.classList.toggle('collapsed');
                 div.querySelector('#legend-content').classList.toggle('collapsed');
             });
         }, 0);
+        
         return div;
     };
     legend.addTo(map);
