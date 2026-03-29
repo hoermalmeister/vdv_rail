@@ -12,20 +12,10 @@ window.openTimetable = function(lineName) {
     title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${textColor}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
 
     let lineTrains = new Set();
-    let validStationsForLine = new Set();
 
     window.routesData.forEach(r => {
         if (r.lineName === lineName || r.changesTo === lineName) {
             if (r.trainNames) r.trainNames.forEach(t => lineTrains.add(t));
-        }
-        
-        // Define which stations belong strictly to this line
-        if (r.lineName === lineName && !r.changeAt) {
-            r.waypoints.forEach(w => validStationsForLine.add(w));
-        } else if (r.changeAt) {
-            let changeIdx = r.waypoints.indexOf(r.changeAt);
-            if (r.lineName === lineName) for(let i=0; i<=changeIdx; i++) validStationsForLine.add(r.waypoints[i]);
-            if (r.changesTo === lineName) for(let i=changeIdx; i<r.waypoints.length; i++) validStationsForLine.add(r.waypoints[i]);
         }
     });
 
@@ -33,10 +23,48 @@ window.openTimetable = function(lineName) {
     for (let pdf in window.timetablesData) {
         let tDict = window.timetablesData[pdf].trains;
         if(!tDict) continue;
+        
         lineTrains.forEach(tId => {
             if (tDict[tId]) {
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
+
+                // PERFECT SLICING LOGIC for line-changing trains
+                let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
+                
+                if (matchedRoute && matchedRoute.changeAt) {
+                    let changeIdx = tClone.stops.findIndex(s => s.station === matchedRoute.changeAt);
+                    if (changeIdx !== -1) {
+                        if (matchedRoute.lineName === lineName) {
+                            // Viewing first half: Slice out the end
+                            let finalStop = tClone.stops[tClone.stops.length - 1];
+                            tClone.stops = tClone.stops.slice(0, changeIdx + 1);
+                            
+                            if (finalStop.station !== matchedRoute.changeAt) {
+                                tClone.continuation = {
+                                    station: finalStop.station,
+                                    time: finalStop.arrival || finalStop.time || finalStop.departure,
+                                    lineBadge: matchedRoute.changesTo,
+                                    badgeColor: matchedRoute.changeColor || window.lineColorsDict[matchedRoute.changesTo] || '#94a3b8'
+                                };
+                            }
+                        } else if (matchedRoute.changesTo === lineName) {
+                            // Viewing second half: Slice out the beginning
+                            let firstStop = tClone.stops[0];
+                            tClone.stops = tClone.stops.slice(changeIdx);
+                            
+                            if (firstStop.station !== matchedRoute.changeAt) {
+                                tClone.origin = {
+                                    station: firstStop.station,
+                                    time: firstStop.departure || firstStop.time || firstStop.arrival,
+                                    lineBadge: matchedRoute.lineName,
+                                    badgeColor: matchedRoute.color || window.lineColorsDict[matchedRoute.lineName] || '#94a3b8'
+                                };
+                            }
+                        }
+                    }
+                }
+
                 if (!extractedTrains.some(et => et.id === tId)) extractedTrains.push(tClone);
             }
         });
@@ -63,17 +91,20 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
+    // BUILD MASTER LIST WITHOUT FILTERING
     function buildMaster(trainsList) {
         let master = [];
         let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
         sorted.forEach(t => {
             let lastIndex = -1;
-            let uniqueStops = [...new Set(t.stops.map(s => s.station))];
-            uniqueStops.forEach(st => {
-                if (!validStationsForLine.has(st)) return; 
-                let idx = master.indexOf(st);
-                if (idx === -1) { master.splice(lastIndex + 1, 0, st); lastIndex++; } 
-                else { lastIndex = idx; }
+            t.stops.forEach(s => {
+                let idx = master.indexOf(s.station);
+                if (idx === -1) { 
+                    master.splice(lastIndex + 1, 0, s.station); 
+                    lastIndex++; 
+                } else { 
+                    lastIndex = idx; 
+                }
             });
         });
         return master;
@@ -83,14 +114,14 @@ window.openTimetable = function(lineName) {
     let master2 = buildMaster(dir2Trains);
 
     let directions = {};
-    if (master1.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains, validSet: validStationsForLine, currentLine: lineName };
-    if (master2.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains, validSet: validStationsForLine, currentLine: lineName };
+    if (master1.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
+    if (master2.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
 
     let dirKeys = Object.keys(directions);
-    controls.innerHTML = dirKeys.map((key, idx) => `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="renderTimetableGrid('${key}')">${key}</button>`).join('');
+    controls.innerHTML = dirKeys.map((key, idx) => `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="window.renderTimetableGrid('${key}')">${key}</button>`).join('');
 
     window.currentTimetableData = directions;
-    renderTimetableGrid(dirKeys[0]);
+    window.renderTimetableGrid(dirKeys[0]);
     ttModal.style.display = 'flex';
 };
 
@@ -103,14 +134,12 @@ window.renderTimetableGrid = function(dirKey) {
     const data = window.currentTimetableData[dirKey];
     const trains = data.trains;
     const masterStations = data.masterStations;
-    const validSet = data.validSet;
-    const currentLineName = data.currentLine;
     const content = document.getElementById('tt-content');
     const footer = document.getElementById('tt-footer');
 
     let usedNotes = new Set();
     
-    // --- RESTORED SHARED-STATION CHRONOLOGICAL SORTING ---
+    // --- RESTORED ORIGINAL CHRONOLOGICAL SORTING ---
     trains.sort((a, b) => {
         let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (sharedSt) {
@@ -118,9 +147,7 @@ window.renderTimetableGrid = function(dirKey) {
             let sB = b.stops.find(s => s.station === sharedSt);
             return window.timeToMins(sA.departure || sA.time || sA.arrival) - window.timeToMins(sB.departure || sB.time || sB.arrival);
         }
-        let fallbackA = a.stops.find(s => validSet.has(s.station)) || a.stops[0];
-        let fallbackB = b.stops.find(s => validSet.has(s.station)) || b.stops[0];
-        return window.timeToMins(fallbackA.departure || fallbackA.time || fallbackA.arrival) - window.timeToMins(fallbackB.departure || fallbackB.time || fallbackB.arrival);
+        return window.timeToMins(a.stops[0].departure || a.stops[0].time || a.stops[0].arrival) - window.timeToMins(b.stops[0].departure || b.stops[0].time || b.stops[0].arrival);
     });
 
     let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
@@ -143,17 +170,14 @@ window.renderTimetableGrid = function(dirKey) {
     html += `</tr></thead><tbody>`;
 
     // AUX ROW: Ze směru (Incoming trains from other lines)
-    let hasOrigins = trains.some(t => t.stops.findIndex(s => validSet.has(s.station)) > 0);
+    let hasOrigins = trains.some(t => t.origin);
     if (hasOrigins) {
         html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
         trains.forEach(t => {
-            let firstValidIdx = t.stops.findIndex(s => validSet.has(s.station));
-            if (firstValidIdx > 0) {
-                let origin = t.stops[0];
-                let badge = window.getOtherLineBadge(t.id, origin.station, currentLineName);
-                let bHtml = badge ? `<span class="tt-sm-badge" style="background:${badge.color}; color:${window.getContrastColor(badge.color)};">${badge.line}</span>` : '';
-                let time = origin.departure || origin.time || origin.arrival;
-                html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${time}</span><span>${origin.station}</span></div></td>`;
+            if (t.origin) {
+                let fg = window.getContrastColor(t.origin.badgeColor);
+                let bHtml = `<span class="tt-sm-badge" style="background:${t.origin.badgeColor}; color:${fg};">${t.origin.lineBadge}</span>`;
+                html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.origin.time}</span><span>${t.origin.station}</span></div></td>`;
             } else html += `<td></td>`;
         });
         html += `</tr>`;
@@ -165,63 +189,50 @@ window.renderTimetableGrid = function(dirKey) {
         trains.forEach(t => {
             let s_list = t.stops.filter(s => s.station === station);
             
-            // Find bounds for the Skip Symbol (|)
-            let validStopsForThisTrain = t.stops.filter(s => validSet.has(s.station));
+            // FLAWLESS SKIP (|) MATH
+            let firstStopIdx = masterStations.indexOf(t.stops[0].station);
+            let lastStopIdx = masterStations.indexOf(t.stops[t.stops.length - 1].station);
+            let currentStIdx = masterStations.indexOf(station);
             
-            if (validStopsForThisTrain.length > 0) {
-                let firstStopIdx = masterStations.indexOf(validStopsForThisTrain[0].station);
-                let lastStopIdx = masterStations.indexOf(validStopsForThisTrain[validStopsForThisTrain.length - 1].station);
-                let currentStIdx = masterStations.indexOf(station);
-
-                if (s_list.length > 0) {
-                    let reqIcon = s_list.some(s => s.request_stop) ? `<span class="tt-req">×</span>` : '';
-                    if (s_list.length === 1 && !s_list[0].arrival && !s_list[0].departure) {
-                        html += `<td>${reqIcon}<span class="tt-time">${s_list[0].time || ''}</span></td>`;
-                    } else {
-                        let arrTime = s_list[0].arrival || s_list[0].time;
-                        let depTime = s_list[s_list.length - 1].departure || s_list[s_list.length - 1].time;
-                        if (arrTime === depTime) {
-                            html += `<td>${reqIcon}<span class="tt-time">${arrTime}</span></td>`;
-                        } else {
-                            html += `<td>
-                                <div class="arr-dep-box">
-                                    <div class="arr-time">${reqIcon}<span class="time-lbl">př</span><span class="tt-time">${arrTime}</span></div>
-                                    <div class="dep-time"><span class="time-lbl">od</span><span class="tt-time">${depTime}</span></div>
-                                </div>
-                            </td>`;
-                        }
-                    }
+            if (s_list.length > 0) {
+                let reqIcon = s_list.some(s => s.request_stop) ? `<span class="tt-req">×</span>` : '';
+                if (s_list.length === 1 && !s_list[0].arrival && !s_list[0].departure) {
+                    html += `<td>${reqIcon}<span class="tt-time">${s_list[0].time || ''}</span></td>`;
                 } else {
-                    // Only show skip symbol if the station is BETWEEN the train's start and end points on this line
-                    if (currentStIdx > firstStopIdx && currentStIdx < lastStopIdx) {
-                        html += `<td><span class="tt-pass">|</span></td>`;
+                    let arrTime = s_list[0].arrival || s_list[0].time;
+                    let depTime = s_list[s_list.length - 1].departure || s_list[s_list.length - 1].time;
+                    if (arrTime === depTime) {
+                        html += `<td>${reqIcon}<span class="tt-time">${arrTime}</span></td>`;
                     } else {
-                        html += `<td></td>`;
+                        html += `<td>
+                            <div class="arr-dep-box">
+                                <div class="arr-time">${reqIcon}<span class="time-lbl">př</span><span class="tt-time">${arrTime}</span></div>
+                                <div class="dep-time"><span class="time-lbl">od</span><span class="tt-time">${depTime}</span></div>
+                            </div>
+                        </td>`;
                     }
                 }
             } else {
-                html += `<td></td>`;
+                // Check if current station is literally between the train's starting station and ending station
+                if (currentStIdx > firstStopIdx && currentStIdx < lastStopIdx) {
+                    html += `<td><span class="tt-pass">|</span></td>`;
+                } else {
+                    html += `<td></td>`;
+                }
             }
         });
         html += `</tr>`;
     });
 
     // AUX ROW: Směřuje do (Trains continuing to other lines)
-    let hasContinuations = trains.some(t => {
-        let lastValidIdx = t.stops.findLastIndex(s => validSet.has(s.station));
-        return lastValidIdx !== -1 && lastValidIdx < t.stops.length - 1;
-    });
-
+    let hasContinuations = trains.some(t => t.continuation);
     if (hasContinuations) {
         html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
         trains.forEach(t => {
-            let lastValidIdx = t.stops.findLastIndex(s => validSet.has(s.station));
-            if (lastValidIdx !== -1 && lastValidIdx < t.stops.length - 1) {
-                let dest = t.stops[t.stops.length - 1];
-                let badge = window.getOtherLineBadge(t.id, dest.station, currentLineName);
-                let bHtml = badge ? `<span class="tt-sm-badge" style="background:${badge.color}; color:${window.getContrastColor(badge.color)};">${badge.line}</span>` : '';
-                let time = dest.arrival || dest.time || dest.departure;
-                html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${time}</span><span>${dest.station}</span></div></td>`;
+            if (t.continuation) {
+                let fg = window.getContrastColor(t.continuation.badgeColor);
+                let bHtml = `<span class="tt-sm-badge" style="background:${t.continuation.badgeColor}; color:${fg};">${t.continuation.lineBadge}</span>`;
+                html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.continuation.time}</span><span>${t.continuation.station}</span></div></td>`;
             } else html += `<td></td>`;
         });
         html += `</tr>`;
@@ -230,7 +241,6 @@ window.renderTimetableGrid = function(dirKey) {
     html += `</tbody></table>`;
     content.innerHTML = html;
 
-    // GENERATE LEGEND
     let footerHtml = `<div class="legend-grid">`;
     usedNotes.forEach(note => {
         let meaning = window.notesDict[note] || "Neznámá poznámka";
