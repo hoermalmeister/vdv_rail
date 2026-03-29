@@ -1038,7 +1038,7 @@
                       }
                   ]
               },
-              "Sp 1927": {
+              "Sp 1935": {
                 "notes": ["25"],
                 "notes_validity": ["all"],
                   "stops": [
@@ -4058,11 +4058,6 @@
                 "notes": ["wd"],
                 "notes_validity": ["all"],
                   "stops": [
-                      {
-                        "station": "Věžná",
-                        "time": "22.08",
-                        "request_stop": true
-                    },
                     {
                         "station": "Nové Město na Moravě",
                         "time": "23.03",
@@ -4536,7 +4531,7 @@
                       }
                   ]
               },
-              "Os 8750": {
+              "Os 14940": {
                 "notes": ["wd"],
                 "notes_validity": ["all"],
                   "stops": [
@@ -4658,7 +4653,7 @@
                       }
                   ]
               },
-              "Os 8750": {
+              "Os 18443": {
                 "notes": ["6"],
                 "notes_validity": ["all"],
                   "stops": [
@@ -11080,7 +11075,7 @@
                       }
                   ]
               },
-              "Os 14823": {
+              "Os 24823": {
                 "notes": ["14"],
                 "notes_validity": ["all"],
                   "stops": [
