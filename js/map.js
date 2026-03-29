@@ -16,7 +16,7 @@ function initializeMap() {
         }
         const badgeTextColor = window.getContrastColor(segData.color);
         
-        // Clickable badges for Desktop Popups
+        // Desktop click interactions inside the popup
         const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
         const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
         
@@ -175,7 +175,7 @@ function initializeMap() {
                 interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
                 interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
             } else {
-                // FIXED: Removed L.DomEvent.stopPropagation(e) that crashed mobile devices
+                // FIXED: Removed the crashing stopPropagation logic for mobile touchscreens
                 interactionLine.on('click', function() {
                     if (linesOnSegment.length === 1) {
                         window.currentSegmentLinesData = linesOnSegment;
