@@ -7,6 +7,18 @@ function initializeMap() {
     const stationLines = {};
     window.lineEndpoints = {}; 
 
+    // FIXED: Strict color lookup to prevent overriding primary colors with fallback colors
+    window.routesData.forEach(route => {
+        if (route.color && !window.lineColorsDict[route.lineName]) {
+            window.lineColorsDict[route.lineName] = route.color;
+        }
+    });
+    window.routesData.forEach(route => {
+        if (route.changesTo && !window.lineColorsDict[route.changesTo]) {
+            window.lineColorsDict[route.changesTo] = route.changeColor || route.color;
+        }
+    });
+
     window.generateLineTooltipHtml = function(segData, isClick = false) {
         let destinationsHtml = "";
         for (const [routeLabel, data] of Object.entries(segData.destinations)) {
@@ -16,7 +28,6 @@ function initializeMap() {
         }
         const badgeTextColor = window.getContrastColor(segData.color);
         
-        // Desktop click interactions inside the popup
         const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
         const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
         
@@ -26,8 +37,8 @@ function initializeMap() {
                 <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>${destinationsHtml}</div>`;
     }
 
-    // --- MOBILE MODALS ---
-    window.openSegmentModal = function(nodeA, nodeB, linesOnSegment) {
+    // --- MOBILE LINE CHOOSER MODAL ---
+    window.openSegmentModal = function(nodeA, nodeB, linesOnSegment, clickLatLng) {
         const modal = document.getElementById('segment-modal');
         const content = document.getElementById('segment-modal-content');
 
@@ -56,34 +67,19 @@ function initializeMap() {
         `;
 
         window.currentSegmentLinesData = linesOnSegment;
+        window.currentSegmentClickLatLng = clickLatLng;
         modal.style.display = 'flex';
     };
 
-    window.showSegmentDetails = function(idx, isSingle = false) {
+    // FIXED: Now opens the requested Leaflet Popup directly at the spot you tapped
+    window.showSegmentDetails = function(idx) {
         const segData = window.currentSegmentLinesData[idx];
-        const content = document.getElementById('segment-modal-content');
+        window.closeSegmentModal();
         
-        const detailedHtml = window.generateLineTooltipHtml(segData, true);
-
-        let headerHtml = '';
-        if (isSingle) {
-            headerHtml = `<div class="modal-header" style="justify-content: flex-end;">
-                            <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
-                          </div>`;
-        } else {
-            headerHtml = `<div class="modal-header">
-                            <button onclick="openSegmentModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="modal-back-btn">← Zpět</button>
-                            <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
-                          </div>`;
-        }
-
-        let ttButton = `
-            <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
-                <button onclick="window.openTimetable('${segData.lineName}'); window.closeSegmentModal();" style="background: ${segData.color}; color: ${window.getContrastColor(segData.color)}; border: none; padding: 10px; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity 0.2s;">Otevřít jízdní řád linky</button>
-            </div>`;
-
-        content.innerHTML = headerHtml + detailedHtml + ttButton;
-        document.getElementById('segment-modal').style.display = 'flex';
+        L.popup({ className: 'custom-popup' })
+         .setLatLng(window.currentSegmentClickLatLng)
+         .setContent(window.generateLineTooltipHtml(segData, true))
+         .openOn(map);
     };
 
     window.closeSegmentModal = function() {
@@ -91,9 +87,6 @@ function initializeMap() {
     };
 
     window.routesData.forEach(route => {
-        window.lineColorsDict[route.lineName] = route.color;
-        if (route.changesTo) window.lineColorsDict[route.changesTo] = route.changeColor || route.color;
-
         route.connections = route.trainNames ? route.trainNames.length : 0;
         const firstStation = route.waypoints[0];
         const lastStation = route.waypoints[route.waypoints.length - 1];
@@ -175,13 +168,15 @@ function initializeMap() {
                 interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
                 interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
             } else {
-                // FIXED: Removed the crashing stopPropagation logic for mobile touchscreens
-                interactionLine.on('click', function() {
+                // FIXED: Direct to popup if 1 line, Menu if multiple lines. No event stopping crashes.
+                interactionLine.on('click', function(e) {
                     if (linesOnSegment.length === 1) {
-                        window.currentSegmentLinesData = linesOnSegment;
-                        window.showSegmentDetails(0, true);
+                        L.popup({ className: 'custom-popup' })
+                         .setLatLng(e.latlng)
+                         .setContent(window.generateLineTooltipHtml(linesOnSegment[0], true))
+                         .openOn(map);
                     } else {
-                        window.openSegmentModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                        window.openSegmentModal(segData.nodeA, segData.nodeB, linesOnSegment, e.latlng);
                     }
                 });
             }
@@ -219,9 +214,7 @@ function initializeMap() {
     const legend = L.control({position: 'bottomleft'});
     legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'map-legend');
-        
-        L.DomEvent.disableClickPropagation(div); 
-        L.DomEvent.disableScrollPropagation(div);
+        L.DomEvent.disableClickPropagation(div); L.DomEvent.disableScrollPropagation(div);
 
         let html = `<div class="legend-title" id="legend-toggle"><span>Linky a konečné stanice</span><span class="legend-toggle-icon">▼</span></div><div class="legend-content" id="legend-content">`;
 
