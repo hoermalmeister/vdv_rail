@@ -25,7 +25,6 @@
         .custom-popup a.leaflet-popup-close-button { color: #94a3b8 !important; top: 8px !important; right: 8px !important; }
         .custom-popup a.leaflet-popup-close-button:hover { color: #ffffff !important; }
         
-        /* Internal Tooltip/Popup Styling */
         .tooltip-header { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px; }
         .line-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; transition: transform 0.1s, filter 0.2s; border: 1px solid rgba(0,0,0,0.2); }
         .line-badge:hover { transform: scale(1.05); filter: brightness(1.2); }
@@ -36,7 +35,6 @@
         .dest-count { font-weight: 700; color: #38bdf8; margin-left: 12px; }
         .dest-trains { font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3); padding: 6px 8px; border-radius: 4px; margin: 2px 0 8px 0; border-left: 2px solid rgba(255, 255, 255, 0.1); }
         
-        /* Simple Hover for Stations */
         .simple-station-tooltip { background-color: #ffffff; color: #1e293b; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; pointer-events: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
         /* Overlays & Legends */
@@ -61,46 +59,40 @@
         .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; }
         table.modern-tt { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; color: #e2e8f0; }
         
-        /* THE STICKY HEADER MAGIC */
-        table.modern-tt th { background: #1e293b; padding: 12px 8px; font-weight: 600; color: #cbd5e1; border-bottom: 2px solid #334155; border-right: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; z-index: 20; vertical-align: bottom; }
+        /* RESTORED ELEGANT STICKY HEADERS */
+        table.modern-tt th { position: sticky; background: #1e293b; padding: 10px 8px; font-weight: 600; color: #cbd5e1; border-right: 1px solid rgba(255,255,255,0.05); z-index: 5; white-space: nowrap; }
+        table.modern-tt thead tr:first-child th { top: 0; height: 40px; box-sizing: border-box; }
+        .tt-note-row th { top: 40px; height: 32px; font-size: 11px; color: #94a3b8; background: #0f172a; border-bottom: 2px solid #334155; box-sizing: border-box; }
         
-        /* WIDER STATION COLUMN */
+        /* WIDER, WRAPPING STATION COLUMN */
         table.modern-tt th:first-child, table.modern-tt td:first-child { 
             position: sticky; left: 0; text-align: left; 
             background: #1e293b; border-right: 2px solid #334155; 
             font-weight: 600; z-index: 10; padding: 10px 16px; 
             min-width: 180px; max-width: 250px; white-space: normal; line-height: 1.3;
         }
-        /* Top Left Corner needs highest Z-index so it stays above both rows and columns */
-        table.modern-tt th:first-child { z-index: 30; white-space: nowrap; vertical-align: middle; } 
+        table.modern-tt th:first-child { z-index: 15; vertical-align: middle; padding-bottom: 10px; } 
 
-        table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+        table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
         table.modern-tt tbody tr:hover { background: rgba(255,255,255,0.03); }
         
-        /* Train Header Formatting */
-        .tt-train-id { font-weight: 700; color: #f1f5f9; font-size: 14px; margin-bottom: 6px; }
-        .tt-train-notes { font-size: 11px; color: #94a3b8; font-weight: 400; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
-        .tt-note-badge { display: inline-flex; align-items: center; }
-        .tt-note-badge sup { color: #38bdf8; font-weight: 700; margin-left: 1px; font-size: 9px; }
-        
-        /* Arrival / Departure Styling */
-        .arr-dep-box { display: flex; flex-direction: column; gap: 2px; }
-        .arr-time { color: #94a3b8; font-size: 11px; display: flex; justify-content: center; gap: 4px; align-items: center; }
+        /* Interactive Notes */
+        .tt-note-badge { display: inline-block; margin: 0 3px; }
+        .clickable-note { color: #38bdf8; cursor: pointer; border-bottom: 1px dotted #38bdf8; padding-bottom: 1px; }
+
+        /* Arrival/Departure Split */
+        .arr-dep-box { display: flex; flex-direction: column; gap: 4px; }
+        .arr-time { color: #94a3b8; font-size: 12px; display: flex; justify-content: center; gap: 4px; align-items: center; }
         .dep-time { color: #e2e8f0; font-size: 14px; display: flex; justify-content: center; gap: 4px; align-items: center; }
         .time-lbl { font-size: 9px; text-transform: uppercase; opacity: 0.7; }
 
         .tt-time { font-family: monospace; font-size: 14px; }
-        .tt-req { color: #facc15; font-size: 12px; margin-right: 4px; font-weight: 700; }
+        .tt-req { color: #facc15; font-size: 11px; vertical-align: super; margin-right: 2px; }
         .tt-pass { color: #475569; }
 
-        /* Footer & Legend */
-        .timetable-footer { padding: 16px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-direction: column; gap: 12px; }
-        .legend-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+        .timetable-footer { padding: 16px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 16px; }
         .note-item { display: flex; gap: 6px; align-items: baseline; }
         .note-sym { font-weight: 700; color: #cbd5e1; }
-        .section-note-item { background: rgba(56, 189, 248, 0.1); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2); color: #cbd5e1; }
-        .section-note-item sup { color: #38bdf8; font-weight: 700; }
-        .validity-text { color: #94a3b8; font-style: italic; margin-left: 4px; }
 
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -112,7 +104,6 @@
             .timetable-box { width: 100%; height: 100%; border-radius: 0; }
             .timetable-header { border-radius: 0; padding: 12px 16px; }
             table.modern-tt th:first-child, table.modern-tt td:first-child { min-width: 140px; padding-left: 12px; }
-            .legend-grid { gap: 10px; flex-direction: column; }
         }
     </style>
 </head>
@@ -153,13 +144,15 @@
             return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 140) ? '#1a1a1a' : '#ffffff';
         }
 
-        // --- Helper: Convert Time to Minutes for Robust Sorting ---
+        // --- Helper: Convert Time to Minutes for Perfect Sorting ---
+        // Pushes any time before 03:00 AM past midnight for proper ordering
         function timeToMins(timeStr) {
             if (!timeStr) return 99999;
             let match = timeStr.toString().match(/\d{1,2}[\.,:]\d{2}/);
             if (!match) return 99999;
             let parts = match[0].replace(':', '.').split('.');
-            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            let m = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            return m < 180 ? m + 1440 : m; 
         }
 
         const map = L.map('map').setView([49.4, 15.6], 9);
@@ -262,16 +255,18 @@
                 }
             });
 
+            // Extracts strictly unique station names in chronological order
             function buildMaster(trainsList) {
                 if(trainsList.length === 0) return [];
                 let master = [];
                 let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
                 sorted.forEach(t => {
                     let lastIndex = -1;
-                    t.stops.forEach(stop => {
-                        let idx = master.indexOf(stop.station);
+                    let uniqueStops = [...new Set(t.stops.map(s => s.station))];
+                    uniqueStops.forEach(st => {
+                        let idx = master.indexOf(st);
                         if (idx === -1) {
-                            master.splice(lastIndex + 1, 0, stop.station);
+                            master.splice(lastIndex + 1, 0, st);
                             lastIndex++;
                         } else {
                             lastIndex = idx;
@@ -285,12 +280,8 @@
             let master2 = buildMaster(dir2Trains);
 
             let directions = {};
-            if (dir1Trains.length > 0) {
-                directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
-            }
-            if (dir2Trains.length > 0) {
-                directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
-            }
+            if (dir1Trains.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
+            if (dir2Trains.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
 
             let dirKeys = Object.keys(directions);
             controls.innerHTML = dirKeys.map((key, idx) => 
@@ -315,66 +306,70 @@
             const footer = document.getElementById('tt-footer');
 
             let usedNotes = new Set();
-            let sectionValidityCounter = 1;
-            let sectionValidityMap = {};
-            let sectionValidityDetails = [];
             
-            // Strictly Chronological Sorting by First Stop Time
+            // --- STRICT CHRONOLOGICAL SORTING ---
             trains.sort((a, b) => {
-                let stopA = a.stops[0];
-                let stopB = b.stops[0];
-                let timeA = timeToMins(stopA.departure || stopA.time || stopA.arrival);
-                let timeB = timeToMins(stopB.departure || stopB.time || stopB.arrival);
-                return timeA - timeB;
+                let sharedStation = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
+                if (sharedStation) {
+                    let sA = a.stops.find(s => s.station === sharedStation);
+                    let sB = b.stops.find(s => s.station === sharedStation);
+                    return timeToMins(sA.time || sA.arrival || sA.departure) - timeToMins(sB.time || sB.arrival || sB.departure);
+                }
+                return timeToMins(a.stops[0].time || a.stops[0].arrival) - timeToMins(b.stops[0].time || b.stops[0].arrival);
             });
 
-            let html = `<table class="modern-tt"><thead><tr><th>Stanice</th>`;
+            // 1. Build RESTORED Elegant Headers
+            let html = `<table class="modern-tt"><thead><tr><th rowspan="2">Stanice</th>`;
+            trains.forEach(t => { html += `<th>${t.id}</th>`; });
+            html += `</tr><tr class="tt-note-row">`;
             
-            // Build the Combined Header (Train ID + Notes)
-            trains.forEach(t => { 
+            trains.forEach(t => {
                 let notesHtml = [];
                 (t.notes || []).forEach((n, idx) => {
                     let validity = (t.notes_validity && t.notes_validity[idx]) ? t.notes_validity[idx] : null;
                     usedNotes.add(n);
                     
                     if (validity && validity.toLowerCase() !== "all") {
-                        let valKey = `${n}_${validity}`;
-                        if (!sectionValidityMap[valKey]) {
-                            sectionValidityMap[valKey] = sectionValidityCounter++;
-                            sectionValidityDetails.push({ note: n, validity: validity, sup: sectionValidityMap[valKey] });
-                        }
-                        notesHtml.push(`<span class="tt-note-badge">${n}<sup>${sectionValidityMap[valKey]}</sup></span>`);
+                        // Interactive Clickable Section Notes
+                        notesHtml.push(`<span class="tt-note-badge clickable-note" onclick="alert('Poznámka ${n}\\nPlatí pouze pro úsek:\\n${validity}')" title="Klikněte pro zobrazení úseku">${n}*</span>`);
                     } else {
                         notesHtml.push(`<span class="tt-note-badge">${n}</span>`);
                     }
                 });
-                
-                let notesWrapper = notesHtml.length > 0 ? `<div class="tt-train-notes">${notesHtml.join(' ')}</div>` : '';
-                html += `<th><div class="tt-train-id">${t.id}</div>${notesWrapper}</th>`;
+                html += `<th>${notesHtml.join(' ')}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
-            // Build Body (Arrival and Departure logic)
+            // 2. Build Body (With Arrival/Departure Stack Logic)
             masterStations.forEach(station => {
                 html += `<tr><td>${station}</td>`;
                 trains.forEach(t => {
-                    let stop = t.stops.find(s => s.station === station);
-                    if (stop) {
-                        let isReq = stop.request_stop || stop.request_stop_arrival || stop.request_stop_departure;
-                        let reqIcon = isReq ? `<span class="tt-req">×</span>` : '';
+                    // Extract all stops for this specific station in this train
+                    let s_list = t.stops.filter(s => s.station === station);
+                    
+                    if (s_list.length > 0) {
+                        let reqIcon = s_list.some(s => s.request_stop) ? `<span class="tt-req">×</span>` : '';
                         
-                        let timeContent = '';
-                        if (stop.arrival && stop.departure) {
-                            timeContent = `<div class="arr-dep-box">
-                                <div class="arr-time">${reqIcon}<span class="time-lbl">př</span> <span class="tt-time">${stop.arrival}</span></div>
-                                <div class="dep-time">${reqIcon}<span class="time-lbl">od</span> <span class="tt-time">${stop.departure}</span></div>
-                            </div>`;
-                        } else {
-                            let singleTime = stop.time || stop.arrival || stop.departure || '';
-                            timeContent = `${reqIcon}<span class="tt-time">${singleTime}</span>`;
+                        // Scenario A: Single Time recorded
+                        if (s_list.length === 1 && !s_list[0].arrival && !s_list[0].departure) {
+                            html += `<td>${reqIcon}<span class="tt-time">${s_list[0].time || ''}</span></td>`;
+                        } 
+                        // Scenario B: Multiple Times / Explicit Arr-Dep recorded
+                        else {
+                            let arrTime = s_list[0].arrival || s_list[0].time;
+                            let depTime = s_list[s_list.length - 1].departure || s_list[s_list.length - 1].time;
+                            
+                            if (arrTime === depTime) {
+                                html += `<td>${reqIcon}<span class="tt-time">${arrTime}</span></td>`;
+                            } else {
+                                html += `<td>
+                                    <div class="arr-dep-box">
+                                        <div class="arr-time">${reqIcon}<span class="time-lbl">př</span><span class="tt-time">${arrTime}</span></div>
+                                        <div class="dep-time"><span class="time-lbl">od</span><span class="tt-time">${depTime}</span></div>
+                                    </div>
+                                </td>`;
+                            }
                         }
-                        
-                        html += `<td>${timeContent}</td>`;
                     } else {
                         html += `<td><span class="tt-pass">|</span></td>`;
                     }
@@ -385,30 +380,13 @@
             html += `</tbody></table>`;
             content.innerHTML = html;
 
-            // Generate Legend Footer
+            // 3. Generate Legend Footer
             let footerHtml = `<div class="legend-grid">`;
-            
-            // Standard global notes
             usedNotes.forEach(note => {
                 let meaning = window.notesDict[note] || "Neznámá poznámka";
                 footerHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${meaning}</div>`;
             });
             footerHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:16px;">×</span> Zastávka na znamení</div></div>`;
-            
-            // Section-Specific Footnotes
-            if (sectionValidityDetails.length > 0) {
-                footerHtml += `<div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
-                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">Omezení úseků</div>
-                    <div class="legend-grid">`;
-                sectionValidityDetails.forEach(detail => {
-                    let meaning = window.notesDict[detail.note] || "Neznámá poznámka";
-                    footerHtml += `<div class="note-item section-note-item">
-                                        <sup>${detail.sup}</sup> <span class="note-sym">${detail.note}</span>: ${meaning} 
-                                        <span class="validity-text">(Platí pouze pro úsek: ${detail.validity})</span>
-                                   </div>`;
-                });
-                footerHtml += `</div></div>`;
-            }
             
             footer.innerHTML = footerHtml;
         };
@@ -525,7 +503,7 @@
                     const interactionLine = L.polyline(latlngs, { color: '#000', weight: hitBoxWeight, opacity: 0, offset: offset }).addTo(map);
 
                     const hoverHtml = generateLineTooltipHtml(segData, false);
-                    const clickHtml = generateLineTooltipHtml(segData, true); // Button removed
+                    const clickHtml = generateLineTooltipHtml(segData, true); 
 
                     interactionLine.bindTooltip(hoverHtml, { sticky: true });
                     interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
@@ -537,7 +515,7 @@
                 });
             });
 
-            // Draw Stations (Hover Tooltip AND Fixed Click Popup)
+            // Draw Stations
             for (const [name, coords] of Object.entries(window.stationsData)) {
                 const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
                 const isJunction = passingLines.length > 1;
