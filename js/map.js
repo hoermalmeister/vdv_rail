@@ -7,7 +7,7 @@ function initializeMap() {
     const stationLines = {};
     window.lineEndpoints = {}; 
 
-    // FIXED: Strict color lookup to prevent overriding primary colors with fallback colors
+    // STRICT COLOR LOOKUP: Prioritize base colors, fall back to changeColors
     window.routesData.forEach(route => {
         if (route.color && !window.lineColorsDict[route.lineName]) {
             window.lineColorsDict[route.lineName] = route.color;
@@ -51,7 +51,7 @@ function initializeMap() {
                 const endB = data.start < data.end ? data.end : data.start;
                 endpointsText = `${endA} ↔ ${endB}`;
             }
-            return `<button class="modal-line-btn" onclick="showSegmentDetails(${idx})">
+            return `<button class="modal-line-btn" onclick="window.showSegmentDetails(${idx})">
                         <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
                         <span class="btn-text" style="font-weight: 600;">${endpointsText}</span>
                     </button>`;
@@ -60,7 +60,7 @@ function initializeMap() {
         content.innerHTML = `
             <div class="modal-header">
                 <h3>${nodeA} ↔ ${nodeB}</h3>
-                <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
+                <button onclick="window.closeSegmentModal()" class="close-modal-btn">&times;</button>
             </div>
             <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Na tomto úseku jezdí více linek. Kterou chcete zobrazit?</p>
             <div class="modal-line-list">${buttonsHtml}</div>
@@ -71,7 +71,7 @@ function initializeMap() {
         modal.style.display = 'flex';
     };
 
-    // FIXED: Now opens the requested Leaflet Popup directly at the spot you tapped
+    // OPENS THE REQUESTED LEAFLET POPUP
     window.showSegmentDetails = function(idx) {
         const segData = window.currentSegmentLinesData[idx];
         window.closeSegmentModal();
@@ -168,13 +168,11 @@ function initializeMap() {
                 interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
                 interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
             } else {
-                // FIXED: Direct to popup if 1 line, Menu if multiple lines. No event stopping crashes.
                 interactionLine.on('click', function(e) {
                     if (linesOnSegment.length === 1) {
-                        L.popup({ className: 'custom-popup' })
-                         .setLatLng(e.latlng)
-                         .setContent(window.generateLineTooltipHtml(linesOnSegment[0], true))
-                         .openOn(map);
+                        window.currentSegmentLinesData = linesOnSegment;
+                        window.currentSegmentClickLatLng = e.latlng;
+                        window.showSegmentDetails(0);
                     } else {
                         window.openSegmentModal(segData.nodeA, segData.nodeB, linesOnSegment, e.latlng);
                     }
