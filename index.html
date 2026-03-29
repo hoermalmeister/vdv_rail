@@ -7,163 +7,84 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #1a1a1a; overflow: hidden; }
 
-        /* FIX: 100dvh dynamically adjusts to the mobile browser's address bar popping up/down */
-        #map {
-            height: 100vh; /* Fallback for older browsers */
-            height: 100dvh;
-            width: 100vw;
-        }
+        #map { height: 100vh; height: 100dvh; width: 100vw; }
 
-        /* Modernized Hover Tooltip */
-        .leaflet-tooltip {
-            background-color: rgba(25, 30, 36, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #f1f5f9;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 13px;
-            line-height: 1.5;
-            pointer-events: none;
-        }
-        .leaflet-tooltip::before,
-        .leaflet-tooltip::after { display: none !important; }
-
-        /* CLICK-TO-PIN POPUP (Desktop) */
-        .custom-popup .leaflet-popup-content-wrapper {
-            background-color: rgba(25, 30, 36, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #f1f5f9;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 0;
-        }
-        .custom-popup .leaflet-popup-content { margin: 12px 16px; font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; min-width: 260px; }
+        /* Map Tooltips & Popups */
+        .leaflet-tooltip { background-color: rgba(25, 30, 36, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); border-radius: 8px; padding: 12px 16px; font-size: 13px; pointer-events: none; }
+        .leaflet-tooltip::before, .leaflet-tooltip::after { display: none !important; }
+        .custom-popup .leaflet-popup-content-wrapper { background-color: rgba(25, 30, 36, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; border-radius: 8px; padding: 0; }
+        .custom-popup .leaflet-popup-content { margin: 12px 16px; font-size: 13px; min-width: 260px; }
         .custom-popup .leaflet-popup-tip-container { display: none !important; }
-        .custom-popup a.leaflet-popup-close-button { color: #94a3b8 !important; top: 10px !important; right: 10px !important; font-size: 16px !important; padding: 0 !important; }
-        .custom-popup a.leaflet-popup-close-button:hover { color: #ffffff !important; }
+        .custom-popup a.leaflet-popup-close-button { color: #94a3b8 !important; }
 
-        /* Internal Content Styling */
-        .tooltip-header { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px; padding-right: 16px; }
-        .line-badge { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+        .tooltip-header { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px; }
+        .line-badge { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; transition: transform 0.1s; }
+        .line-badge:hover { transform: scale(1.05); }
         .tooltip-segment { color: #94a3b8; margin-bottom: 8px; font-size: 12px; }
-        .tooltip-connections { font-weight: 600; color: #e2e8f0; }
         .tooltip-destinations { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; }
-
-        /* Destination Rows Styling */
         .dest-group { margin-top: 4px; }
-        .dest-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-radius: 4px; }
-        .dest-right { display: flex; align-items: center; }
+        .dest-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
         .dest-count { font-weight: 700; color: #38bdf8; margin-left: 12px; }
+        .dest-trains { font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3); padding: 6px 8px; border-radius: 4px; margin: 2px 0 8px 0; border-left: 2px solid rgba(255, 255, 255, 0.1); }
+        .station-tooltip { background-color: #ffffff; color: #1e293b; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; min-width: 60px; pointer-events: auto; }
 
-        /* Train Names List (Always visible on click) */
-        .dest-trains {
-            font-size: 11px; color: #94a3b8; background: rgba(0, 0, 0, 0.3);
-            padding: 6px 8px; border-radius: 4px; margin: 2px 0 8px 0;
-            word-wrap: break-word; line-height: 1.5; border-left: 2px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Station Tooltip */
-        .station-tooltip {
-            background-color: #ffffff; color: #1e293b; border: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); padding: 6px 10px;
-            border-radius: 6px; font-size: 12px; white-space: normal; min-width: 60px;
-        }
-
-        .leaflet-marker-pane { z-index: 650; }
-
-        /* Title Box Overlay */
-        .map-overlay {
-            position: absolute; top: 20px; right: 20px; z-index: 1000;
-            background: rgba(25, 30, 36, 0.95); color: white; padding: 20px;
-            border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1); max-width: 320px; pointer-events: none;
-        }
-        .map-overlay h1 { margin: 0 0 8px 0; font-size: 18px; letter-spacing: 0.5px; }
-        .map-overlay p { margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5; }
-
-        /* Legend Box Bottom Left */
-        .map-legend {
-            background: rgba(25, 30, 36, 0.95); color: #f1f5f9; padding: 14px;
-            border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
-            font-family: 'Inter', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            /* FIX: Prevents mobile scroll from dragging the whole webpage layout */
-            touch-action: pan-y;
-        }
-        .legend-title {
-            font-weight: 700; margin-bottom: 10px; font-size: 13px;
-            border-bottom: 1px solid #334155; padding-bottom: 6px;
-            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
-            user-select: none; transition: color 0.2s;
-        }
-        .legend-title:hover { color: #38bdf8; }
-        .legend-title.collapsed { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
-        .legend-toggle-icon { font-size: 10px; transition: transform 0.2s; margin-left: 12px; color: #94a3b8; }
-        .legend-title.collapsed .legend-toggle-icon { transform: rotate(-90deg); }
-        .legend-content { display: flex; flex-direction: column; }
-        .legend-content.collapsed { display: none; }
-
+        /* Overlays & Legends */
+        .map-overlay { position: absolute; top: 20px; right: 20px; z-index: 1000; background: rgba(25, 30, 36, 0.95); color: white; padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); max-width: 320px; pointer-events: none; }
+        .map-overlay h1 { margin: 0 0 8px 0; font-size: 18px; }
+        .map-overlay p { margin: 0; font-size: 13px; color: #94a3b8; }
+        .map-legend { background: rgba(25, 30, 36, 0.95); color: #f1f5f9; padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); touch-action: pan-y; }
+        .legend-title { font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid #334155; padding-bottom: 6px; cursor: pointer; display: flex; justify-content: space-between; }
         .legend-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
-        .legend-row:last-child { margin-bottom: 0; }
-        .legend-stops { font-size: 11px; color: #cbd5e1; white-space: nowrap; font-weight: 600;}
+        .legend-stops { font-size: 11px; color: #cbd5e1; font-weight: 600;}
 
-        /* Scrollbar styles for modal and mobile legend */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        /* --- TIMETABLE MODAL UI --- */
+        .timetable-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .timetable-box { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; width: 95%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .timetable-header { padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: #1e293b; border-radius: 12px 12px 0 0; }
+        .timetable-header h2 { margin: 0; font-size: 20px; color: white; display: flex; align-items: center; gap: 12px; }
 
-        /* Mobile Line Chooser Modal */
-        .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.65); z-index: 3000; justify-content: center; align-items: center;
-            backdrop-filter: blur(3px);
-        }
-        .modal-box {
-            background: rgba(25, 30, 36, 0.98); border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px; width: 90%; max-width: 380px; padding: 20px; color: #f1f5f9;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;
-        }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px; }
-        .modal-header h3 { margin: 0; font-size: 16px; color: white;}
-        .close-btn, .back-btn { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0; transition: color 0.2s;}
-        .close-btn { font-size: 24px; line-height: 1; }
-        .back-btn { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-        .close-btn:hover, .back-btn:hover { color: white; }
-        .modal-line-list { display: flex; flex-direction: column; gap: 8px; }
-        .modal-line-btn {
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            padding: 12px; border-radius: 8px; cursor: pointer; text-align: left;
-            display: flex; align-items: center; transition: background 0.2s; gap: 12px;
-        }
-        .modal-line-btn:active { background: rgba(255,255,255,0.1); }
-        .modal-line-btn span.btn-text { font-size: 13px; color: #cbd5e1; font-family: 'Inter', sans-serif;}
+        /* Timetable Controls (Tabs for Direction) */
+        .timetable-controls { padding: 12px 24px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; gap: 10px; overflow-x: auto; }
+        .dir-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; transition: 0.2s; }
+        .dir-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
 
-        /* --- MOBILE SPECIFIC FIXES --- */
+        /* The Grid */
+        .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; }
+        table.modern-tt { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; color: #e2e8f0; }
+        table.modern-tt th { background: #1e293b; padding: 12px 8px; font-weight: 600; color: #cbd5e1; border-bottom: 2px solid #334155; border-right: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; z-index: 5; white-space: nowrap; }
+        table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
+        table.modern-tt tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+        /* Sticky Station Column */
+        table.modern-tt th:first-child, table.modern-tt td:first-child { position: sticky; left: 0; text-align: left; background: #1e293b; border-right: 2px solid #334155; font-weight: 600; z-index: 10; padding-left: 24px; }
+        table.modern-tt th:first-child { z-index: 15; } /* Corner cell */
+
+        .tt-note-row th { font-size: 11px; color: #94a3b8; background: #0f172a; top: 43px; border-bottom: 1px solid #334155; }
+        .tt-time { font-family: monospace; font-size: 14px; }
+        .tt-req { color: #facc15; font-size: 10px; vertical-align: super; margin-right: 2px; }
+        .tt-pass { color: #475569; }
+
+        /* Timetable Footer (Notes Legend) */
+        .timetable-footer { padding: 12px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 16px; }
+        .note-item { display: flex; gap: 6px; align-items: baseline; }
+        .note-sym { font-weight: 700; color: #cbd5e1; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-corner { background: #0f172a; }
+
         @media (max-width: 768px) {
             .map-overlay { top: 10px; right: 10px; padding: 12px; max-width: 250px; }
-            .map-overlay h1 { font-size: 16px; }
-            .map-overlay p { font-size: 11px; }
-
-            /* FIX: Push leaflet controls safely above iOS/Android home bars */
-            .leaflet-bottom.leaflet-left {
-                bottom: env(safe-area-inset-bottom, 10px);
-            }
-            .leaflet-control-container .leaflet-bottom .leaflet-control {
-                margin-bottom: 25px; /* Extra padding guarantees it clears the bottom browser bar */
-            }
-
-            .map-legend {
-                max-height: 38dvh; /* Ensures the open legend never takes more than ~40% of dynamic screen height */
-                overflow-y: auto;
-            }
+            .map-legend { max-height: 38dvh; overflow-y: auto; }
+            .timetable-box { width: 100%; height: 100%; border-radius: 0; }
+            .timetable-header { border-radius: 0; padding: 12px 16px; }
+            table.modern-tt th:first-child, table.modern-tt td:first-child { padding-left: 12px; }
         }
     </style>
 </head>
@@ -173,11 +94,26 @@
 
     <div class="map-overlay">
         <h1>VDV Vlakové linky</h1>
-        <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte vlaky.</p>
+        <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím</b> zobrazíte detail.</p>
     </div>
 
-    <div id="mobile-modal" class="modal-overlay">
-        <div id="mobile-modal-content" class="modal-box"></div>
+    <div id="mobile-modal" class="timetable-overlay" style="z-index: 3000;">
+        <div id="mobile-modal-content" style="background: rgba(25,30,36,0.98); border-radius: 12px; padding: 20px; color: white; width:90%; max-width:380px;"></div>
+    </div>
+
+    <div id="tt-modal" class="timetable-overlay">
+        <div class="timetable-box">
+            <div class="timetable-header">
+                <h2 id="tt-title">Linka</h2>
+                <button onclick="closeTimetable()" style="background:none; border:none; color:#94a3b8; font-size:28px; cursor:pointer;">&times;</button>
+            </div>
+            <div class="timetable-controls" id="tt-controls">
+                </div>
+            <div class="timetable-content" id="tt-content">
+                </div>
+            <div class="timetable-footer" id="tt-footer">
+                </div>
+        </div>
     </div>
 
     <script>
@@ -186,88 +122,221 @@
         function getContrastColor(hexColor) {
             if (!hexColor) return '#ffffff';
             hexColor = hexColor.replace("#", "");
-            if (hexColor.length === 3) {
-                hexColor = hexColor[0] + hexColor[0] + hexColor[1] + hexColor[1] + hexColor[2] + hexColor[2];
-            }
+            if (hexColor.length === 3) hexColor = hexColor[0] + hexColor[0] + hexColor[1] + hexColor[1] + hexColor[2] + hexColor[2];
             if (hexColor.length !== 6) return '#ffffff';
-            const r = parseInt(hexColor.slice(0, 2), 16);
-            const g = parseInt(hexColor.slice(2, 4), 16);
-            const b = parseInt(hexColor.slice(4, 6), 16);
-            const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-            return (yiq >= 140) ? '#1a1a1a' : '#ffffff';
+            const r = parseInt(hexColor.slice(0, 2), 16), g = parseInt(hexColor.slice(2, 4), 16), b = parseInt(hexColor.slice(4, 6), 16);
+            return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 140) ? '#1a1a1a' : '#ffffff';
         }
 
         const map = L.map('map').setView([49.4, 15.6], 9);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            subdomains: 'abcd',
-            maxZoom: 20
-        }).addTo(map);
+        // Global Data Stores
+        window.stationsData = {};
+        window.routesData = [];
+        window.timetablesData = {};
+        window.notesDict = {};
+        window.lineColorsDict = {};
 
         // --- ASYNC DATA LOADING ---
         async function loadMapData() {
             try {
-                // Fetch both JSON files simultaneously
-                const [stationsRes, routesRes] = await Promise.all([
+                const [stationsRes, routesRes, ttRes, notesRes] = await Promise.all([
                     fetch('stations.json'),
-                    fetch('routes.json')
+                    fetch('routes.json'),
+                    fetch('timetables_master.json'),
+                    fetch('notes_dict.json')
                 ]);
 
-                if (!stationsRes.ok || !routesRes.ok) {
-                    throw new Error("Nepodařilo se načíst data (Zkontrolujte, zda běží lokální server).");
-                }
+                window.stationsData = await stationsRes.json();
+                window.routesData = await routesRes.json();
+                window.timetablesData = await ttRes.json();
+                window.notesDict = await notesRes.json();
 
-                const stations = await stationsRes.json();
-                const routes = await routesRes.json();
-
-                // Initialize the map with the loaded data
-                initializeMap(stations, routes);
-
+                initializeMap();
             } catch (error) {
                 console.error("Chyba při načítání dat:", error);
-                alert("Došlo k chybě při načítání souborů 'stations.json' a 'routes.json'. Pro lokální běh použijte lokální webový server (např. VS Code Live Server).");
+                alert("Nepodařilo se načíst JSON soubory. Ujistěte se, že běžíte na lokálním serveru.");
             }
         }
 
-        // --- PRECALCULATION AND DRAWING WRAPPER ---
-        function initializeMap(stations, routes) {
+        // --- TIMETABLE GENERATION LOGIC ---
+        window.openTimetable = function(lineName) {
+            const ttModal = document.getElementById('tt-modal');
+            const title = document.getElementById('tt-title');
+            const controls = document.getElementById('tt-controls');
+            const content = document.getElementById('tt-content');
+            const footer = document.getElementById('tt-footer');
+
+            const lineColor = window.lineColorsDict[lineName] || '#ffffff';
+            const textColor = getContrastColor(lineColor);
+
+            title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${textColor}; font-size: 16px; padding: 4px 12px;">${lineName}</span> Jízdní řád`;
+
+            // 1. Gather all Train IDs for this line
+            let lineTrains = new Set();
+            window.routesData.forEach(r => {
+                if (r.lineName === lineName || r.changesTo === lineName) {
+                    if (r.trainNames) r.trainNames.forEach(t => lineTrains.add(t));
+                }
+            });
+
+            // 2. Extract train data from master JSON
+            let extractedTrains = [];
+            for (let pdf in window.timetablesData) {
+                let tDict = window.timetablesData[pdf].trains;
+                if(!tDict) continue;
+
+                lineTrains.forEach(tId => {
+                    if (tDict[tId]) {
+                        extractedTrains.push({ id: tId, ...tDict[tId] });
+                    }
+                });
+            }
+
+            if (extractedTrains.length === 0) {
+                content.innerHTML = `<div style="padding:24px; text-align:center; color:#94a3b8;">Pro tuto linku zatím nejsou k dispozici data jízdních řádů.</div>`;
+                controls.innerHTML = ''; footer.innerHTML = '';
+                ttModal.style.display = 'flex';
+                return;
+            }
+
+            // 3. Group trains by Starting Station (Direction)
+            let directions = {};
+            extractedTrains.forEach(train => {
+                if(train.stops && train.stops.length > 0) {
+                    let startStation = train.stops[0].station;
+                    let endStation = train.stops[train.stops.length - 1].station;
+                    let dirKey = `Z: ${startStation}`;
+
+                    if(!directions[dirKey]) directions[dirKey] = { label: `Směr ${endStation}`, trains: [] };
+                    directions[dirKey].trains.push(train);
+                }
+            });
+
+            // Build Controls (Tabs)
+            let dirKeys = Object.keys(directions);
+            controls.innerHTML = dirKeys.map((key, idx) =>
+                `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="renderTimetableGrid('${key}')">${key}</button>`
+            ).join('');
+
+            // Store for rendering
+            window.currentTimetableData = directions;
+
+            // Render first tab
+            renderTimetableGrid(dirKeys[0]);
+            ttModal.style.display = 'flex';
+        };
+
+        window.renderTimetableGrid = function(dirKey) {
+            // Update Tab UI
+            document.querySelectorAll('.dir-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.innerText === dirKey) btn.classList.add('active');
+            });
+
+            const trains = window.currentTimetableData[dirKey].trains;
+            const content = document.getElementById('tt-content');
+            const footer = document.getElementById('tt-footer');
+
+            // 1. Build Master Station List for this direction (Topological merge)
+            let masterStations = [];
+            trains.forEach(t => {
+                let lastIndex = -1;
+                t.stops.forEach(stop => {
+                    let idx = masterStations.indexOf(stop.station);
+                    if (idx === -1) {
+                        masterStations.splice(lastIndex + 1, 0, stop.station);
+                        lastIndex++;
+                    } else {
+                        lastIndex = idx;
+                    }
+                });
+            });
+
+            // 2. Collect used notes
+            let usedNotes = new Set();
+
+            // 3. Sort trains by departure time of their first stop
+            trains.sort((a, b) => {
+                let timeA = parseFloat(a.stops[0].time.replace('.', '.'));
+                let timeB = parseFloat(b.stops[0].time.replace('.', '.'));
+                return timeA - timeB;
+            });
+
+            // 4. Build Table HTML
+            let html = `<table class="modern-tt"><thead><tr><th>Stanice</th>`;
+
+            // Train IDs Row
+            trains.forEach(t => { html += `<th>${t.id}</th>`; });
+            html += `</tr><tr class="tt-note-row"><th></th>`;
+
+            // Operation Notes Row
+            trains.forEach(t => {
+                let notesStr = (t.operation_notes || []).join(' ');
+                (t.operation_notes || []).forEach(n => usedNotes.add(n));
+                html += `<th>${notesStr}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+
+            // Data Rows
+            masterStations.forEach(station => {
+                html += `<tr><td>${station}</td>`;
+                trains.forEach(t => {
+                    let stop = t.stops.find(s => s.station === station);
+                    if (stop) {
+                        let reqIcon = stop.request_stop ? `<span class="tt-req">×</span>` : '';
+                        html += `<td>${reqIcon}<span class="tt-time">${stop.time}</span></td>`;
+                    } else {
+                        html += `<td><span class="tt-pass">|</span></td>`;
+                    }
+                });
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table>`;
+            content.innerHTML = html;
+
+            // 5. Build Legend
+            let footerHtml = '';
+            usedNotes.forEach(note => {
+                let meaning = window.notesDict[note] || "Neznámá poznámka";
+                footerHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${meaning}</div>`;
+            });
+
+            // Add request stop legend item by default
+            footerHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:14px;">×</span> Zastávka na znamení</div>`;
+
+            footer.innerHTML = footerHtml;
+        };
+
+        window.closeTimetable = function() {
+            document.getElementById('tt-modal').style.display = 'none';
+        };
+
+        // --- MAP INITIALIZATION ---
+        function initializeMap() {
             const segmentsMap = {};
             const stationLines = {};
-            const lineColorsDict = {};
             const lineEndpoints = {};
 
-            routes.forEach(route => {
-                lineColorsDict[route.lineName] = route.color;
-                if (route.changesTo) {
-                    lineColorsDict[route.changesTo] = route.changeColor || route.color;
-                }
+            window.routesData.forEach(route => {
+                window.lineColorsDict[route.lineName] = route.color;
+                if (route.changesTo) window.lineColorsDict[route.changesTo] = route.changeColor || route.color;
 
-                if (route.trainNames && Array.isArray(route.trainNames)) {
-                    route.connections = route.trainNames.length;
-                } else {
-                    route.connections = route.connections || 0;
-                }
-
+                route.connections = route.trainNames ? route.trainNames.length : 0;
                 const firstStation = route.waypoints[0];
                 const lastStation = route.waypoints[route.waypoints.length - 1];
 
-                // LEGEND LOGIC
+                // Legend Tracking
                 if (route.changeAt && route.changesTo) {
                     const changeIndex = route.waypoints.indexOf(route.changeAt);
                     if (changeIndex !== -1) {
-                        const part1Len = changeIndex + 1;
-                        if (!lineEndpoints[route.lineName] || part1Len > lineEndpoints[route.lineName].length) {
-                            lineEndpoints[route.lineName] = { length: part1Len, start: firstStation, end: route.changeAt, color: route.color };
+                        if (!lineEndpoints[route.lineName] || changeIndex + 1 > lineEndpoints[route.lineName].length) {
+                            lineEndpoints[route.lineName] = { length: changeIndex + 1, start: firstStation, end: route.changeAt, color: route.color };
                         }
-
-                        const part2Len = route.waypoints.length - changeIndex;
-                        if (!lineEndpoints[route.changesTo] || part2Len > lineEndpoints[route.changesTo].length) {
-                            lineEndpoints[route.changesTo] = { length: part2Len, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
-                        }
-                    } else {
-                        if (!lineEndpoints[route.lineName] || route.waypoints.length > lineEndpoints[route.lineName].length) {
-                            lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
+                        if (!lineEndpoints[route.changesTo] || route.waypoints.length - changeIndex > lineEndpoints[route.changesTo].length) {
+                            lineEndpoints[route.changesTo] = { length: route.waypoints.length - changeIndex, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
                         }
                     }
                 } else {
@@ -281,10 +350,8 @@
                 let hasChanged = false;
 
                 for (let i = 0; i < route.waypoints.length - 1; i++) {
-                    const st1 = route.waypoints[i];
-                    const st2 = route.waypoints[i + 1];
-
-                    if (!stations[st1] || !stations[st2]) continue;
+                    const st1 = route.waypoints[i], st2 = route.waypoints[i + 1];
+                    if (!window.stationsData[st1] || !window.stationsData[st2]) continue;
 
                     if (route.changeAt && (st1 === route.changeAt || hasChanged)) {
                         currentLineName = route.changesTo;
@@ -292,226 +359,60 @@
                         hasChanged = true;
                     }
 
-                    let segmentRouteLabel = "";
-                    if (route.changesTo && route.changeAt) {
-                        if (!hasChanged) {
-                            const cColor = route.changeColor || '#ffffff';
-                            const textC = getContrastColor(cColor);
-                            segmentRouteLabel = `${firstStation} ↔ ${route.changeAt} <span class="line-badge" style="background-color: ${cColor}; color: ${textC}; margin: 0 4px; padding: 1px 6px; font-size: 11px;">${route.changesTo}</span> ↔ ${lastStation}`;
-                        } else {
-                            const origColor = route.color || '#ffffff';
-                            const textO = getContrastColor(origColor);
-                            segmentRouteLabel = `${firstStation} ↔ <span class="line-badge" style="background-color: ${origColor}; color: ${textO}; margin: 0 4px; padding: 1px 6px; font-size: 11px;">${route.lineName}</span> ${route.changeAt} ↔ ${lastStation}`;
-                        }
-                    } else {
-                        const endA = firstStation < lastStation ? firstStation : lastStation;
-                        const endB = firstStation < lastStation ? lastStation : firstStation;
-                        segmentRouteLabel = `${endA} ↔ ${endB}`;
-                    }
-
                     if (!stationLines[st1]) stationLines[st1] = new Set();
                     if (!stationLines[st2]) stationLines[st2] = new Set();
                     stationLines[st1].add(currentLineName);
                     stationLines[st2].add(currentLineName);
 
-                    const lon1 = stations[st1][1];
-                    const lon2 = stations[st2][1];
-                    let isReversed = false;
-
-                    if (lon1 > lon2) { isReversed = true; } else if (lon1 === lon2) { isReversed = stations[st1][0] > stations[st2][0]; }
+                    const isReversed = (window.stationsData[st1][1] > window.stationsData[st2][1]) ||
+                                       (window.stationsData[st1][1] === window.stationsData[st2][1] && window.stationsData[st1][0] > window.stationsData[st2][0]);
 
                     const nodeA = isReversed ? st2 : st1;
                     const nodeB = isReversed ? st1 : st2;
                     const segmentKey = `${nodeA}---${nodeB}`;
 
                     if (!segmentsMap[segmentKey]) segmentsMap[segmentKey] = {};
-
-                    const lineKey = currentLineName;
-
-                    if (!segmentsMap[segmentKey][lineKey]) {
-                        segmentsMap[segmentKey][lineKey] = {
-                            lineName: currentLineName, connections: 0, color: currentColor, nodeA: nodeA, nodeB: nodeB, destinations: {}
-                        };
+                    if (!segmentsMap[segmentKey][currentLineName]) {
+                        segmentsMap[segmentKey][currentLineName] = { lineName: currentLineName, connections: 0, color: currentColor, nodeA: nodeA, nodeB: nodeB, destinations: {} };
                     }
 
-                    segmentsMap[segmentKey][lineKey].connections += route.connections;
-
-                    if (!segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel]) {
-                        segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel] = { count: 0, trains: [] };
-                    }
-
-                    segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel].count += route.connections;
-                    if (route.trainNames) {
-                        segmentsMap[segmentKey][lineKey].destinations[segmentRouteLabel].trains.push(...route.trainNames);
-                    }
+                    segmentsMap[segmentKey][currentLineName].connections += route.connections;
                 }
             });
 
-            // --- DRAWING: Generate the popup content logic ---
-            function generateTooltipHtml(segData, isClick = false) {
-                let destinationsHtml = "";
-                for (const [routeLabel, data] of Object.entries(segData.destinations)) {
-                    const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
-
-                    let trainsHtml = "";
-                    if (isClick) {
-                        trainsHtml = `<div class="dest-trains">${uniqueTrains}</div>`;
-                    }
-
-                    destinationsHtml += `
-                        <div class="dest-group">
-                            <div class="dest-row">
-                                <span>${routeLabel}</span>
-                                <span class="dest-right">
-                                    <span class="dest-count">${data.count}</span>
-                                </span>
-                            </div>
-                            ${trainsHtml}
-                        </div>
-                    `;
-                }
-
-                const badgeTextColor = getContrastColor(segData.color);
-
-                return `
-                    <div class="tooltip-header">
-                        <span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor};">${segData.lineName}</span>
-                    </div>
-                    <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
-                    <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
-                    <div class="tooltip-destinations">
-                        <div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>
-                        ${destinationsHtml}
-                    </div>
-                `;
-            }
-
-            // --- UI LOGIC: Mobile Modal System ---
-            function openMobileModal(nodeA, nodeB, linesOnSegment) {
-                const modal = document.getElementById('mobile-modal');
-                const content = document.getElementById('mobile-modal-content');
-
-                let buttonsHtml = linesOnSegment.map((seg, idx) => {
-                    const textColor = getContrastColor(seg.color);
-
-                    let endpointsText = "Zobrazit spojení...";
-                    if (lineEndpoints && lineEndpoints[seg.lineName]) {
-                        const data = lineEndpoints[seg.lineName];
-                        const endA = data.start < data.end ? data.start : data.end;
-                        const endB = data.start < data.end ? data.end : data.start;
-                        endpointsText = `${endA} ↔ ${endB}`;
-                    }
-
-                    return `<button class="modal-line-btn" onclick="showMobileDetails(${idx})">
-                                <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
-                                <span class="btn-text" style="font-weight: 600;">${endpointsText}</span>
-                            </button>`;
-                }).join('');
-
-                content.innerHTML = `
-                    <div class="modal-header">
-                        <h3>${nodeA} ↔ ${nodeB}</h3>
-                        <button onclick="closeModal()" class="close-btn">&times;</button>
-                    </div>
-                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Na tomto úseku jezdí více linek. Kterou chcete zobrazit?</p>
-                    <div class="modal-line-list">
-                        ${buttonsHtml}
-                    </div>
-                `;
-
-                window.currentSegmentLinesData = linesOnSegment;
-                modal.style.display = 'flex';
-            }
-
-            window.showMobileDetails = function(idx, isSingle = false) {
-                const segData = window.currentSegmentLinesData[idx];
-                const content = document.getElementById('mobile-modal-content');
-
-                const detailedHtml = generateTooltipHtml(segData, true);
-
-                let headerHtml = '';
-                if (isSingle) {
-                    headerHtml = `
-                        <div class="modal-header" style="justify-content: flex-end;">
-                            <button onclick="closeModal()" class="close-btn">&times;</button>
-                        </div>
-                    `;
-                } else {
-                    headerHtml = `
-                        <div class="modal-header">
-                            <button onclick="openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button>
-                            <button onclick="closeModal()" class="close-btn">&times;</button>
-                        </div>
-                    `;
-                }
-
-                content.innerHTML = headerHtml + detailedHtml;
-                document.getElementById('mobile-modal').style.display = 'flex';
-            };
-
-            window.closeModal = function() {
-                document.getElementById('mobile-modal').style.display = 'none';
-            };
-
-            // --- DRAWING: Lines on Map ---
+            // Draw Lines
             Object.entries(segmentsMap).forEach(([segKey, linesObj]) => {
-                const linesOnSegment = Object.values(linesObj);
-                linesOnSegment.sort((a, b) => a.lineName.localeCompare(b.lineName));
+                const linesOnSegment = Object.values(linesObj).sort((a, b) => a.lineName.localeCompare(b.lineName));
+                let totalThickness = 0; const gap = 2;
 
-                let totalThickness = 0;
-                const gap = 2;
-
-                linesOnSegment.forEach(seg => {
-                    seg.thickness = (seg.connections * 0.22) + 2.5;
-                    totalThickness += seg.thickness;
-                });
-
+                linesOnSegment.forEach(seg => { seg.thickness = (seg.connections * 0.22) + 2.5; totalThickness += seg.thickness; });
                 totalThickness += (linesOnSegment.length - 1) * gap;
                 let currentOffset = -totalThickness / 2;
 
                 linesOnSegment.forEach((segData) => {
                     const offset = currentOffset + (segData.thickness / 2);
-                    const latlngs = [ stations[segData.nodeA], stations[segData.nodeB] ];
+                    const latlngs = [ window.stationsData[segData.nodeA], window.stationsData[segData.nodeB] ];
 
-                    L.polyline(latlngs, {
-                        color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false
-                    }).addTo(map);
-
-                    L.polyline(latlngs, {
-                        color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false
-                    }).addTo(map);
+                    L.polyline(latlngs, { color: '#1a1a1a', weight: segData.thickness + 2.5, offset: offset, interactive: false }).addTo(map);
+                    L.polyline(latlngs, { color: segData.color, weight: segData.thickness, offset: offset, interactive: false }).addTo(map);
 
                     const hitBoxWeight = isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
-                    const interactionLine = L.polyline(latlngs, {
-                        color: '#000000', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset
-                    }).addTo(map);
+                    const interactionLine = L.polyline(latlngs, { color: '#000', weight: hitBoxWeight, opacity: 0, offset: offset }).addTo(map);
 
-                    const tooltipContentHover = generateTooltipHtml(segData, false);
-                    const tooltipContentClick = generateTooltipHtml(segData, true);
+                    // Re-use simple tooltip logic for map hover
+                    const tooltipHtml = `<div class="tooltip-header"><span class="line-badge" style="background-color:${segData.color}; color:${getContrastColor(segData.color)};" onclick="openTimetable('${segData.lineName}')">${segData.lineName}</span></div>
+                                         <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
+                                         <div style="font-size:11px; color:#94a3b8;">Kliknutím zobrazíte jízdní řád linky</div>`;
 
-                    if (!isMobile) {
-                        interactionLine.bindTooltip(tooltipContentHover, { sticky: true });
-                        interactionLine.bindPopup(tooltipContentClick, { className: 'custom-popup' });
-
-                        interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
-                        interactionLine.on('popupclose', function() { this.bindTooltip(tooltipContentHover, { sticky: true }); });
-                    } else {
-                        interactionLine.on('click', function() {
-                            if (linesOnSegment.length === 1) {
-                                window.currentSegmentLinesData = linesOnSegment;
-                                showMobileDetails(0, true);
-                            } else {
-                                openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
-                            }
-                        });
-                    }
+                    interactionLine.bindTooltip(tooltipHtml, { sticky: true });
+                    interactionLine.on('click', () => window.openTimetable(segData.lineName));
 
                     currentOffset += segData.thickness + gap;
                 });
             });
 
-            // --- DRAWING: Station Nodes ---
-            for (const [name, coords] of Object.entries(stations)) {
+            // Draw Stations (Adding onclick to the badges)
+            for (const [name, coords] of Object.entries(window.stationsData)) {
                 const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
                 const isJunction = passingLines.length > 1;
 
@@ -519,84 +420,54 @@
                 for (let i = 0; i < passingLines.length; i += 3) {
                     const chunk = passingLines.slice(i, i + 3);
                     const badgesHtml = chunk.map(line => {
-                        const bgColor = lineColorsDict[line] || '#cccccc';
-                        const textColor = getContrastColor(bgColor);
-                        return `<span class="line-badge" style="background-color: ${bgColor}; color: ${textColor}; margin: 2px;">${line}</span>`;
+                        const bgColor = window.lineColorsDict[line] || '#cccccc';
+                        return `<span class="line-badge" style="background-color: ${bgColor}; color: ${getContrastColor(bgColor)}; margin: 2px;" onclick="openTimetable('${line}')">${line}</span>`;
                     }).join('');
                     rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
                 }
 
-                const tooltipHtml = `
-                    <div style="text-align: center; min-width: 80px;">
-                        <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div>
-                        <div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div>
-                    </div>
-                `;
+                const tooltipHtml = `<div style="text-align: center; min-width: 80px; pointer-events: auto;">
+                                        <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div>
+                                        <div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div>
+                                     </div>`;
 
-                L.circleMarker(coords, {
-                    radius: isJunction ? 5.5 : 3.5,
-                    fillColor: "#ffffff",
-                    color: "#1a1a1a",
-                    weight: isJunction ? 3 : 2,
-                    opacity: 1,
-                    fillOpacity: 1
-                }).bindTooltip(tooltipHtml, {
-                    className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8]
-                }).addTo(map);
+                L.circleMarker(coords, { radius: isJunction ? 5.5 : 3.5, fillColor: "#ffffff", color: "#1a1a1a", weight: isJunction ? 3 : 2, opacity: 1, fillOpacity: 1 })
+                 .bindTooltip(tooltipHtml, { className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8], interactive: true })
+                 .addTo(map);
             }
 
-            // --- MAP LEGEND GENERATION ---
+            // Map Legend (Adding onclick to the badges)
             const legend = L.control({position: 'bottomleft'});
             legend.onAdd = function () {
                 const div = L.DomUtil.create('div', 'map-legend');
+                L.DomEvent.disableClickPropagation(div); L.DomEvent.disableScrollPropagation(div);
 
-                L.DomEvent.disableClickPropagation(div);
-                L.DomEvent.disableScrollPropagation(div);
+                let html = `<div class="legend-title" id="legend-toggle"><span>Linky a konečné stanice</span><span class="legend-toggle-icon">▼</span></div>
+                            <div class="legend-content" id="legend-content">`;
 
-                let html = `
-                    <div class="legend-title" id="legend-toggle">
-                        <span>Linky a konečné stanice</span>
-                        <span class="legend-toggle-icon">▼</span>
-                    </div>
-                    <div class="legend-content" id="legend-content">
-                `;
-
-                const sortedLines = Object.keys(lineEndpoints).sort();
-
-                sortedLines.forEach(line => {
+                Object.keys(lineEndpoints).sort().forEach(line => {
                     const data = lineEndpoints[line];
-                    const textColor = getContrastColor(data.color);
-
                     const endA = data.start < data.end ? data.start : data.end;
                     const endB = data.start < data.end ? data.end : data.start;
-
-                    html += `
-                        <div class="legend-row">
-                            <span class="line-badge" style="background-color: ${data.color}; color: ${textColor}; min-width: 32px;">${line}</span>
-                            <span class="legend-stops">${endA} ↔ ${endB}</span>
-                        </div>
-                    `;
+                    html += `<div class="legend-row">
+                                <span class="line-badge" style="background-color: ${data.color}; color: ${getContrastColor(data.color)}; min-width: 32px;" onclick="openTimetable('${line}')">${line}</span>
+                                <span class="legend-stops">${endA} ↔ ${endB}</span>
+                             </div>`;
                 });
-                html += '</div>';
-                div.innerHTML = html;
 
+                div.innerHTML = html + '</div>';
                 setTimeout(() => {
-                    const titleBtn = div.querySelector('#legend-toggle');
-                    const contentDiv = div.querySelector('#legend-content');
-                    titleBtn.addEventListener('click', () => {
-                        titleBtn.classList.toggle('collapsed');
-                        contentDiv.classList.toggle('collapsed');
+                    div.querySelector('#legend-toggle').addEventListener('click', function() {
+                        this.classList.toggle('collapsed');
+                        div.querySelector('#legend-content').classList.toggle('collapsed');
                     });
                 }, 0);
-
                 return div;
             };
             legend.addTo(map);
         }
 
-        // --- KICK OFF THE APPLICATION ---
         loadMapData();
-
     </script>
 </body>
 </html>

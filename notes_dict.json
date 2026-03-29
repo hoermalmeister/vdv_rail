@@ -1,0 +1,15 @@
+{
+    "1": "jede v pondělí",
+    "13": "jede v noci na sobotu, na neděli a na svátek",
+    "14": "jede v pátek a sobotu, mimo svátky",
+    "15": "jede v pondělí až čtvrtek, mimo svátky",
+    "16": "jezdí v období duben - říjen v sobotu, neděli a ve svátky",
+    "24": "jede v pátek, sobotu, neděli a ve svátky",
+    "25": "jede v sobotu, neděli a ve svátky",
+    "27": "jede v pracovní dny a sobotu, mimo svátky",
+    "28": "jede v pracovní dny, neděli a ve svátky",
+    "5": "jede v pátek",
+    "6": "jede v sobotu",
+    "7": "jede v neděli a ve svátky",
+    "wd": "jede v pracovní dny"
+}
