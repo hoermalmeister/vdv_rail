@@ -982,11 +982,6 @@
                         "request_stop": false
                     },
                     {
-                        "station": "Znojmo",
-                        "time": "13.09",
-                        "request_stop": false
-                    },
-                    {
                         "station": "Okříšky",
                         "time": "5.38",
                         "request_stop": false
