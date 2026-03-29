@@ -33,6 +33,13 @@ body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color
 .legend-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
 .legend-stops { font-size: 11px; color: #cbd5e1; font-weight: 600;}
 
+/* RESTORED: Legend Collapsing Logic */
+.legend-title.collapsed { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+.legend-toggle-icon { font-size: 10px; transition: transform 0.2s; margin-left: 12px; color: #94a3b8; }
+.legend-title.collapsed .legend-toggle-icon { transform: rotate(-90deg); }
+.legend-content { display: flex; flex-direction: column; }
+.legend-content.collapsed { display: none; }
+
 /* --- TIMETABLE MODAL UI --- */
 .timetable-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .timetable-box { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; width: 95%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
@@ -47,7 +54,7 @@ body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color
 
 .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; background: #0f172a; }
 
-/* --- TABLE --- */
+/* Table styling */
 table.modern-tt { width: 100%; border-collapse: separate; border-spacing: 0; text-align: center; font-size: 13px; color: #e2e8f0; }
 table.modern-tt th, table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); background-color: #0f172a; background-clip: padding-box; }
 
@@ -55,8 +62,7 @@ table.modern-tt th, table.modern-tt td { padding: 8px; border-bottom: 1px solid 
 .sticky-top-2 { position: sticky; top: 44px; height: 32px; z-index: 20; background-color: #0f172a !important; color: #94a3b8; font-size: 11px; border-bottom: 2px solid #334155; }
 .sticky-col { position: sticky; left: 0; z-index: 10; background-color: #1e293b !important; border-right: 2px solid #334155 !important; text-align: left; font-weight: 600; min-width: 180px; max-width: 250px; white-space: normal; padding-left: 16px !important; }
 
-th.sticky-col.sticky-top-1 { z-index: 30; }
-th.sticky-col.sticky-top-2 { z-index: 30; }
+th.sticky-col.sticky-top-1, th.sticky-col.sticky-top-2 { z-index: 30; }
 
 table.modern-tt tbody tr:hover td { background-color: #1a2436 !important; }
 table.modern-tt tbody tr:hover td.sticky-col { background-color: #273549 !important; z-index: 10; } 
@@ -89,6 +95,18 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
 ::-webkit-scrollbar-corner { background: #0f172a; }
+
+/* RESTORED: Mobile Modal UI */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 5000; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+.modal-box { background: rgba(25, 30, 36, 0.98); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; width: 90%; max-width: 380px; padding: 20px; color: #f1f5f9; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px; }
+.modal-header h3 { margin: 0; font-size: 16px; color: white;}
+.modal-back-btn { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: color 0.2s;}
+.modal-back-btn:hover { color: white; }
+.modal-line-list { display: flex; flex-direction: column; gap: 8px; }
+.modal-line-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; cursor: pointer; text-align: left; display: flex; align-items: center; transition: background 0.2s; gap: 12px; }
+.modal-line-btn:active { background: rgba(255,255,255,0.1); }
+.modal-line-btn span.btn-text { font-size: 13px; color: #cbd5e1; font-family: 'Inter', sans-serif;}
 
 @media (max-width: 768px) {
     .map-overlay { top: 10px; right: 10px; padding: 12px; max-width: 250px; }
