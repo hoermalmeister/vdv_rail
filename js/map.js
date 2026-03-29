@@ -5,9 +5,8 @@ function initializeMap() {
 
     const segmentsMap = {};
     const stationLines = {};
-    window.lineEndpoints = {}; // Made global for the mobile modal
+    window.lineEndpoints = {}; 
 
-    // Expose tooltip generator to window so mobile modal can use it
     window.generateLineTooltipHtml = function(segData, isClick = false) {
         let destinationsHtml = "";
         for (const [routeLabel, data] of Object.entries(segData.destinations)) {
@@ -16,13 +15,17 @@ function initializeMap() {
             destinationsHtml += `<div class="dest-group"><div class="dest-row"><span>${routeLabel}</span><span class="dest-right"><span class="dest-count">${data.count}</span></span></div>${trainsHtml}</div>`;
         }
         const badgeTextColor = window.getContrastColor(segData.color);
-        return `<div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; pointer-events:none;">${segData.lineName}</span></div>
+        
+        // FIXED: Only disable clicking on hover. Make it clickable on popup.
+        const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
+        const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
+        
+        return `<div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; ${pointerStyle}" ${clickAttr}>${segData.lineName}</span></div>
                 <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
                 <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
                 <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>${destinationsHtml}</div>`;
     }
 
-    // --- RESTORED MOBILE MODAL LOGIC ---
     window.openMobileModal = function(nodeA, nodeB, linesOnSegment) {
         const modal = document.getElementById('mobile-modal');
         const content = document.getElementById('mobile-modal-content');
@@ -80,7 +83,6 @@ function initializeMap() {
     window.closeSegmentModal = function() {
         document.getElementById('mobile-modal').style.display = 'none';
     };
-    // -----------------------------------
 
     window.routesData.forEach(route => {
         window.lineColorsDict[route.lineName] = route.color;
@@ -160,7 +162,6 @@ function initializeMap() {
             const hoverHtml = window.generateLineTooltipHtml(segData, false);
             const clickHtml = window.generateLineTooltipHtml(segData, true); 
 
-            // RESTORED: Mobile vs Desktop click split
             if (!window.isMobile) {
                 interactionLine.bindTooltip(hoverHtml, { sticky: true });
                 interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
@@ -191,7 +192,7 @@ function initializeMap() {
             const chunk = passingLines.slice(i, i + 3);
             const badgesHtml = chunk.map(line => {
                 const bgColor = window.lineColorsDict[line] || '#cccccc';
-                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px;" onclick="openTimetable('${line}')">${line}</span>`;
+                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px;" onclick="window.openTimetable('${line}')">${line}</span>`;
             }).join('');
             rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
         }
@@ -211,7 +212,9 @@ function initializeMap() {
     const legend = L.control({position: 'bottomleft'});
     legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'map-legend');
-        L.DomEvent.disableClickPropagation(div); L.DomEvent.disableScrollPropagation(div);
+        
+        L.DomEvent.disableClickPropagation(div); 
+        L.DomEvent.disableScrollPropagation(div);
 
         let html = `<div class="legend-title" id="legend-toggle"><span>Linky a konečné stanice</span><span class="legend-toggle-icon">▼</span></div><div class="legend-content" id="legend-content">`;
 
@@ -220,18 +223,21 @@ function initializeMap() {
             const endA = data.start < data.end ? data.start : data.end;
             const endB = data.start < data.end ? data.end : data.start;
             html += `<div class="legend-row">
-                        <span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px;" onclick="openTimetable('${line}')">${line}</span>
+                        <span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px;" onclick="window.openTimetable('${line}')">${line}</span>
                         <span class="legend-stops">${endA} ↔ ${endB}</span>
                      </div>`;
         });
         
         div.innerHTML = html + '</div>';
         
-        // RESTORED: Legend toggle logic
         setTimeout(() => {
-            div.querySelector('#legend-toggle').addEventListener('click', function() {
-                this.classList.toggle('collapsed');
-                div.querySelector('#legend-content').classList.toggle('collapsed');
+            const toggleBtn = div.querySelector('#legend-toggle');
+            const contentDiv = div.querySelector('#legend-content');
+            
+            L.DomEvent.on(toggleBtn, 'click', function(e) {
+                L.DomEvent.stopPropagation(e);
+                toggleBtn.classList.toggle('collapsed');
+                contentDiv.classList.toggle('collapsed');
             });
         }, 0);
         
