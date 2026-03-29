@@ -49,7 +49,7 @@
         /* --- TIMETABLE MODAL UI --- */
         .timetable-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
         .timetable-box { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; width: 95%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .timetable-header { padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: #1e293b; border-radius: 12px 12px 0 0; }
+        .timetable-header { padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: #1e293b; border-radius: 12px 12px 0 0; flex-shrink: 0; }
         .timetable-header h2 { margin: 0; font-size: 20px; color: white; display: flex; align-items: center; gap: 12px; }
         
         .timetable-controls { padding: 12px 24px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; gap: 10px; overflow-x: auto; flex-shrink: 0; }
@@ -58,42 +58,48 @@
         
         .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; background: #0f172a; }
         
-        /* THE STICKY TABLE MAGIC */
+        /* --- BULLETPROOF STICKY TABLE --- */
         table.modern-tt { width: 100%; border-collapse: separate; border-spacing: 0; text-align: center; font-size: 13px; color: #e2e8f0; }
+        table.modern-tt th, table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); background-color: #0f172a; }
         
-        table.modern-tt th, table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
-        table.modern-tt tbody tr:hover td { background: rgba(255,255,255,0.03); }
-
-        /* Top Header Rows (Sticky Top) */
-        table.modern-tt thead tr:nth-child(1) th { position: sticky; top: 0; background: #1e293b; z-index: 20; height: 44px; box-sizing: border-box; }
-        table.modern-tt thead tr:nth-child(2) th { position: sticky; top: 44px; background: #0f172a; z-index: 20; border-bottom: 2px solid #334155; height: 32px; box-sizing: border-box; font-size: 11px; color: #94a3b8; }
-
-        /* Left Station Column (Sticky Left) */
-        .sticky-left { position: sticky; left: 0; background: #1e293b; z-index: 10; text-align: left; font-weight: 600; min-width: 180px; max-width: 250px; border-right: 2px solid #334155 !important; padding-left: 16px !important; }
+        /* Top Row (Train IDs) */
+        .sticky-top-1 { position: sticky; top: 0; height: 44px; box-sizing: border-box; z-index: 20; background-color: #1e293b !important; color: #cbd5e1; font-weight: 600; }
+        /* Second Row (Notes) */
+        .sticky-top-2 { position: sticky; top: 44px; height: 32px; box-sizing: border-box; z-index: 20; background-color: #0f172a !important; color: #94a3b8; font-size: 11px; border-bottom: 2px solid #334155; }
         
-        /* Top-Left Corner (Sticky Top AND Left - Highest Z-Index) */
-        .sticky-top-left { position: sticky; top: 0; left: 0; background: #1e293b; z-index: 50; text-align: left; border-right: 2px solid #334155 !important; border-bottom: 2px solid #334155 !important; padding-left: 16px !important; vertical-align: middle; }
+        /* Left Station Column */
+        .sticky-col { position: sticky; left: 0; z-index: 10; background-color: #1e293b !important; border-right: 2px solid #334155 !important; text-align: left; font-weight: 600; min-width: 180px; max-width: 250px; white-space: normal; padding-left: 16px !important; }
+        
+        /* The Corner Cells (Highest Z-Index) */
+        th.sticky-col.sticky-top-1 { z-index: 30; }
+        th.sticky-col.sticky-top-2 { z-index: 30; }
 
-        /* Interactive Notes */
+        /* Solid Hover States (No rgba bleeding) */
+        table.modern-tt tbody tr:hover td { background-color: #1a2436 !important; }
+        table.modern-tt tbody tr:hover td.sticky-col { background-color: #273549 !important; }
+
+        /* Auxiliary Rows (Ze stanice / Do stanice) */
+        table.modern-tt tbody tr.aux-row td { background-color: #141b2d !important; border-bottom: 1px dashed rgba(255,255,255,0.1); }
+        table.modern-tt tbody tr.aux-row td.sticky-col { background-color: #192336 !important; color: #94a3b8; font-style: italic; font-size: 11px; }
+        table.modern-tt tbody tr.aux-row:hover td { background-color: #1c263b !important; }
+        table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45 !important; }
+        
+        /* Cell Contents */
+        .aux-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #94a3b8; line-height: 1.2; }
+        .tt-sm-badge { display: inline-flex; align-items: center; justify-content: center; padding: 1px 4px; border-radius: 3px; font-weight: 700; font-size: 9px; line-height: 1.1; margin-bottom: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
         .tt-note-badge { display: inline-block; margin: 0 3px; }
         .clickable-note { color: #38bdf8; cursor: pointer; border-bottom: 1px dotted #38bdf8; padding-bottom: 1px; }
 
-        /* Arrival/Departure Split */
         .arr-dep-box { display: flex; flex-direction: column; gap: 4px; }
         .arr-time { color: #94a3b8; font-size: 12px; display: flex; justify-content: center; gap: 4px; align-items: center; }
         .dep-time { color: #e2e8f0; font-size: 14px; display: flex; justify-content: center; gap: 4px; align-items: center; }
         .time-lbl { font-size: 9px; text-transform: uppercase; opacity: 0.7; }
-        
-        /* Auxiliary Rows (From/To) */
-        .aux-row td { background: rgba(0,0,0,0.2); border-bottom: 1px dashed rgba(255,255,255,0.1); }
-        .aux-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #94a3b8; line-height: 1.2; }
-        .tt-sm-badge { display: inline-flex; align-items: center; justify-content: center; padding: 1px 4px; border-radius: 3px; font-weight: 700; font-size: 9px; line-height: 1.1; margin-bottom: 2px; }
+        .tt-cell-flex { display: flex; align-items: center; justify-content: center; gap: 4px; }
 
         .tt-time { font-family: monospace; font-size: 14px; color: #e2e8f0; }
         .tt-req { color: #facc15; font-size: 11px; vertical-align: super; margin-right: 2px; }
         .tt-pass { color: #475569; }
 
-        /* Footer & Legend */
         .timetable-footer { padding: 16px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 16px; flex-shrink: 0; }
         .note-item { display: flex; gap: 6px; align-items: baseline; }
         .note-sym { font-weight: 700; color: #cbd5e1; }
@@ -107,7 +113,7 @@
             .map-legend { max-height: 38dvh; overflow-y: auto; }
             .timetable-box { width: 100%; height: 100%; border-radius: 0; }
             .timetable-header { border-radius: 0; padding: 12px 16px; }
-            .sticky-left, .sticky-top-left { min-width: 130px; padding-left: 12px !important; font-size: 12px; }
+            .sticky-col { min-width: 130px; padding-left: 12px !important; font-size: 12px; }
         }
     </style>
 </head>
@@ -144,13 +150,14 @@
             return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 140) ? '#1a1a1a' : '#ffffff';
         }
 
+        // Advanced Time Converter for Flawless Sorting
         function timeToMins(timeStr) {
             if (!timeStr) return 99999;
             let match = timeStr.toString().match(/\d{1,2}[\.,:]\d{2}/);
             if (!match) return 99999;
             let parts = match[0].replace(':', '.').replace(',', '.').split('.');
             let m = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-            return m < 180 ? m + 1440 : m; // Shift times before 03:00 to "next day" for accurate sorting
+            return m < 180 ? m + 1440 : m; // Automatically handles midnight crossovers
         }
 
         const map = L.map('map').setView([49.4, 15.6], 9);
@@ -178,7 +185,6 @@
             }
         }
 
-        // --- HELPER: Find External Line Badges ---
         function getBadgeForTrainAtStation(trainId, stationName) {
             for (let r of window.routesData) {
                 if (r.trainNames && r.trainNames.includes(trainId) && r.waypoints.includes(stationName)) {
@@ -220,7 +226,9 @@
                 if(!tDict) continue;
                 lineTrains.forEach(tId => {
                     if (tDict[tId]) {
-                        if (!extractedTrains.some(et => et.id === tId)) extractedTrains.push({ id: tId, ...tDict[tId] });
+                        let tClone = JSON.parse(JSON.stringify(tDict[tId]));
+                        tClone.id = tId;
+                        if (!extractedTrains.some(et => et.id === tId)) extractedTrains.push(tClone);
                     }
                 });
             }
@@ -232,23 +240,17 @@
                 return;
             }
 
-            // DETERMINE VALID STATIONS FOR THIS SPECIFIC LINE
             let validStationsForLine = new Set();
             window.routesData.forEach(r => {
                 if (r.lineName === lineName && !r.changeAt) {
                     r.waypoints.forEach(w => validStationsForLine.add(w));
                 } else if (r.changeAt) {
                     let changeIdx = r.waypoints.indexOf(r.changeAt);
-                    if (r.lineName === lineName) {
-                        for(let i=0; i<=changeIdx; i++) validStationsForLine.add(r.waypoints[i]);
-                    }
-                    if (r.changesTo === lineName) {
-                        for(let i=changeIdx; i<r.waypoints.length; i++) validStationsForLine.add(r.waypoints[i]);
-                    }
+                    if (r.lineName === lineName) for(let i=0; i<=changeIdx; i++) validStationsForLine.add(r.waypoints[i]);
+                    if (r.changesTo === lineName) for(let i=changeIdx; i<r.waypoints.length; i++) validStationsForLine.add(r.waypoints[i]);
                 }
             });
 
-            // GROUP BY DIRECTION
             let dir1Trains = []; let dir2Trains = [];
             let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
             let refStops = refTrain.stops.map(s => s.station);
@@ -263,7 +265,6 @@
                 } else dir1Trains.push(t); 
             });
 
-            // BUILD MASTER LIST (Only using stations valid for this line)
             function buildMaster(trainsList) {
                 let master = [];
                 let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
@@ -271,7 +272,7 @@
                     let lastIndex = -1;
                     let uniqueStops = [...new Set(t.stops.map(s => s.station))];
                     uniqueStops.forEach(st => {
-                        if (!validStationsForLine.has(st)) return; // Skip stops outside this line's scope
+                        if (!validStationsForLine.has(st)) return; 
                         let idx = master.indexOf(st);
                         if (idx === -1) { master.splice(lastIndex + 1, 0, st); lastIndex++; } 
                         else { lastIndex = idx; }
@@ -310,23 +311,31 @@
 
             let usedNotes = new Set();
             
-            // FLawless Chronological Sorting
-            trains.sort((a, b) => {
-                let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
-                if (sharedSt) {
-                    let sA = a.stops.find(s => s.station === sharedSt);
-                    let sB = b.stops.find(s => s.station === sharedSt);
-                    return timeToMins(sA.departure || sA.time || sA.arrival) - timeToMins(sB.departure || sB.time || sB.arrival);
-                }
-                let fallbackA = a.stops.find(s => validSet.has(s.station)) || a.stops[0];
-                let fallbackB = b.stops.find(s => validSet.has(s.station)) || b.stops[0];
-                return timeToMins(fallbackA.departure || fallbackA.time || fallbackA.arrival) - timeToMins(fallbackB.departure || fallbackB.time || fallbackB.arrival);
+            // --- FLAWLESS MATHEMATICAL SORTING ALGORITHM ---
+            let refT = [...trains].sort((a,b) => b.stops.length - a.stops.length)[0];
+            let refDeltas = {};
+            let refBaseTime = timeToMins(refT.stops[0].departure || refT.stops[0].time || refT.stops[0].arrival);
+            refT.stops.forEach(s => {
+                let t = timeToMins(s.departure || s.time || s.arrival);
+                refDeltas[s.station] = t - refBaseTime;
             });
 
-            // TABLE HEADER
-            let html = `<table class="modern-tt"><thead><tr><th rowspan="2" class="sticky-top-left">Stanice</th>`;
-            trains.forEach(t => { html += `<th>${t.id}</th>`; });
-            html += `</tr><tr class="tt-note-row">`;
+            trains.forEach(t => {
+                let sharedStop = t.stops.find(s => refDeltas[s.station] !== undefined);
+                if (sharedStop) {
+                    let actualTime = timeToMins(sharedStop.departure || sharedStop.time || sharedStop.arrival);
+                    t.virtualStartTime = actualTime - refDeltas[sharedStop.station];
+                } else {
+                    t.virtualStartTime = timeToMins(t.stops[0].departure || t.stops[0].time || t.stops[0].arrival);
+                }
+            });
+
+            trains.sort((a, b) => a.virtualStartTime - b.virtualStartTime);
+
+            // --- BUILD TABLE ---
+            let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
+            trains.forEach(t => { html += `<th class="sticky-top-1">${t.id}</th>`; });
+            html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
             
             trains.forEach(t => {
                 let notesHtml = [];
@@ -339,12 +348,12 @@
                         notesHtml.push(`<span class="tt-note-badge">${n}</span>`);
                     }
                 });
-                html += `<th>${notesHtml.join(' ')}</th>`;
+                html += `<th class="sticky-top-2">${notesHtml.join(' ')}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
-            // ROW: ZE STANICE (Origins outside scope)
-            html += `<tr class="aux-row"><td class="sticky-left" style="color:#94a3b8; font-style:italic; font-size:11px;">Ze směru</td>`;
+            // AUX ROW (Ze Stanice)
+            html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
             trains.forEach(t => {
                 let firstValidIdx = t.stops.findIndex(s => validSet.has(s.station));
                 if (firstValidIdx > 0) {
@@ -357,9 +366,9 @@
             });
             html += `</tr>`;
 
-            // MAIN ROWS
+            // MAIN STATIONS
             masterStations.forEach(station => {
-                html += `<tr><td class="sticky-left">${station}</td>`;
+                html += `<tr><td class="sticky-col">${station}</td>`;
                 trains.forEach(t => {
                     let s_list = t.stops.filter(s => s.station === station);
                     if (s_list.length > 0) {
@@ -387,8 +396,8 @@
                 html += `</tr>`;
             });
 
-            // ROW: DO STANICE (Destinations outside scope)
-            html += `<tr class="aux-row"><td class="sticky-left" style="color:#94a3b8; font-style:italic; font-size:11px;">Směřuje do</td>`;
+            // AUX ROW (Směřuje do)
+            html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
             trains.forEach(t => {
                 let lastValidIdx = t.stops.findLastIndex(s => validSet.has(s.station));
                 if (lastValidIdx !== -1 && lastValidIdx < t.stops.length - 1) {
@@ -526,7 +535,6 @@
                 });
             });
 
-            // Draw Stations
             for (const [name, coords] of Object.entries(window.stationsData)) {
                 const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
                 const isJunction = passingLines.length > 1;
