@@ -16,7 +16,7 @@ function initializeMap() {
         }
         const badgeTextColor = window.getContrastColor(segData.color);
         
-        // Ensure the badge is clickable ONLY inside the click popups/modals
+        // Clickable badges for Desktop Popups
         const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
         const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
         
@@ -26,7 +26,7 @@ function initializeMap() {
                 <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>${destinationsHtml}</div>`;
     }
 
-    // --- MOBILE SPECIFIC: Segment Modals ---
+    // --- MOBILE MODALS ---
     window.openSegmentModal = function(nodeA, nodeB, linesOnSegment) {
         const modal = document.getElementById('segment-modal');
         const content = document.getElementById('segment-modal-content');
@@ -168,7 +168,6 @@ function initializeMap() {
             const hoverHtml = window.generateLineTooltipHtml(segData, false);
             const clickHtml = window.generateLineTooltipHtml(segData, true); 
 
-            // UX SPLIT: Desktop gets popups. Mobile gets the Menu.
             if (!window.isMobile) {
                 interactionLine.bindTooltip(hoverHtml, { sticky: true });
                 interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
@@ -176,8 +175,8 @@ function initializeMap() {
                 interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
                 interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
             } else {
-                interactionLine.on('click', function(e) {
-                    L.DomEvent.stopPropagation(e);
+                // FIXED: Removed L.DomEvent.stopPropagation(e) that crashed mobile devices
+                interactionLine.on('click', function() {
                     if (linesOnSegment.length === 1) {
                         window.currentSegmentLinesData = linesOnSegment;
                         window.showSegmentDetails(0, true);
@@ -200,7 +199,6 @@ function initializeMap() {
             const chunk = passingLines.slice(i, i + 3);
             const badgesHtml = chunk.map(line => {
                 const bgColor = window.lineColorsDict[line] || '#cccccc';
-                // Always clickable in the station popup
                 return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px; cursor: pointer;" onclick="window.openTimetable('${line}')">${line}</span>`;
             }).join('');
             rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
