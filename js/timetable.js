@@ -29,6 +29,7 @@ window.openTimetable = function(lineName) {
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
 
+                // FLAWLESS SPLIT JOURNEY LOGIC (Direction-Aware)
                 let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
                 
                 if (matchedRoute && matchedRoute.changeAt) {
@@ -109,11 +110,11 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
-    // FIXED: Build the station order using routes.json backbone to correctly handle branched lines like S14
+    // FLAWLESS S14 FIX: Using routes.json backbone to lay out major junctions before inserting minor stops
     function buildMaster(trainsList) {
         let master = [];
         
-        // Step 1: Lay down the major junctions exactly as defined in routes.json
+        // Step 1: Establish the backbone from known waypoints
         window.routesData.forEach(r => {
             if (r.lineName === lineName || r.changesTo === lineName) {
                 let waypoints = r.waypoints;
@@ -128,20 +129,21 @@ window.openTimetable = function(lineName) {
             }
         });
 
-        // Step 2: Slot the intermediate stations into the backbone
-        trainsList.forEach(t => {
+        // Step 2: Slot intermediate stations into the backbone gaps
+        let sortedTrains = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
+        sortedTrains.forEach(t => {
             let lastBackboneIdx = -1;
             t.stops.forEach(s => {
                 let idx = master.indexOf(s.station);
                 if (idx !== -1) {
-                    lastBackboneIdx = idx; // Update our anchor
+                    lastBackboneIdx = idx; // Update anchor point
                 } else {
-                    // Station not in master list. Insert it right after the last known anchor.
+                    // Insert right after the last known anchor
                     if (lastBackboneIdx !== -1) {
                         master.splice(lastBackboneIdx + 1, 0, s.station);
                         lastBackboneIdx++; 
                     } else {
-                        // If it appears before the very first anchor
+                        // Edge case: appears before the very first anchor
                         master.unshift(s.station);
                         lastBackboneIdx = 0;
                     }
@@ -181,6 +183,7 @@ window.renderTimetableGrid = function(dirKey) {
 
     let usedNotes = new Set();
     
+    // Stable chronological X-axis sorting
     trains.sort((a, b) => {
         let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (sharedSt) {
