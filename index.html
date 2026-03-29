@@ -18,7 +18,7 @@
 
     <div class="map-overlay">
         <h1>VDV Vlakové linky</h1>
-        <p>Najetím na linku zobrazíte detail. <b>Kliknutím na stanici</b> ji připnete a můžete přes odznaky linek otevřít jízdní řád celé linky.</p>
+        <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte vlaky.</p>
     </div>
 
     <div id="mobile-modal" class="modal-overlay">
@@ -29,7 +29,7 @@
         <div class="timetable-box">
             <div class="timetable-header">
                 <h2 id="tt-title">Linka</h2>
-                <button onclick="closeTimetable()" class="close-modal-btn">&times;</button>
+                <button onclick="window.closeTimetable()" class="close-btn">&times;</button>
             </div>
             <div class="timetable-controls" id="tt-controls"></div>
             <div class="timetable-content" id="tt-content"></div>
