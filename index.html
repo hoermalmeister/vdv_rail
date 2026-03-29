@@ -150,14 +150,13 @@
             return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 140) ? '#1a1a1a' : '#ffffff';
         }
 
-        // Advanced Time Converter for Flawless Sorting
         function timeToMins(timeStr) {
             if (!timeStr) return 99999;
             let match = timeStr.toString().match(/\d{1,2}[\.,:]\d{2}/);
             if (!match) return 99999;
             let parts = match[0].replace(':', '.').replace(',', '.').split('.');
             let m = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-            return m < 180 ? m + 1440 : m; // Automatically handles midnight crossovers
+            return m < 180 ? m + 1440 : m; // Shift times before 03:00 to "next day" for accurate sorting
         }
 
         const map = L.map('map').setView([49.4, 15.6], 9);
@@ -185,21 +184,6 @@
             }
         }
 
-        function getBadgeForTrainAtStation(trainId, stationName) {
-            for (let r of window.routesData) {
-                if (r.trainNames && r.trainNames.includes(trainId) && r.waypoints.includes(stationName)) {
-                    if (r.changeAt && r.changesTo) {
-                        let idx = r.waypoints.indexOf(stationName);
-                        let changeIdx = r.waypoints.indexOf(r.changeAt);
-                        if (idx >= changeIdx) return { line: r.changesTo, color: r.changeColor || window.lineColorsDict[r.changesTo] || '#94a3b8' };
-                        else return { line: r.lineName, color: r.color || window.lineColorsDict[r.lineName] || '#94a3b8' };
-                    }
-                    return { line: r.lineName, color: r.color || window.lineColorsDict[r.lineName] || '#94a3b8' };
-                }
-            }
-            return null;
-        }
-
         // --- TIMETABLE LOGIC ---
         window.openTimetable = function(lineName) {
             const ttModal = document.getElementById('tt-modal');
@@ -224,10 +208,46 @@
             for (let pdf in window.timetablesData) {
                 let tDict = window.timetablesData[pdf].trains;
                 if(!tDict) continue;
+                
                 lineTrains.forEach(tId => {
                     if (tDict[tId]) {
                         let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                         tClone.id = tId;
+
+                        // Identify if this train belongs to a split route
+                        let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
+                        
+                        if (matchedRoute && matchedRoute.changeAt) {
+                            let changeIdx = tClone.stops.findIndex(s => s.station === matchedRoute.changeAt);
+                            if (changeIdx !== -1) {
+                                if (matchedRoute.lineName === lineName) {
+                                    // We are viewing the first half of the journey
+                                    let finalStop = tClone.stops[tClone.stops.length - 1];
+                                    tClone.stops = tClone.stops.slice(0, changeIdx + 1);
+                                    if (finalStop.station !== matchedRoute.changeAt) {
+                                        tClone.continuation = {
+                                            station: finalStop.station,
+                                            time: finalStop.arrival || finalStop.time || finalStop.departure,
+                                            lineBadge: matchedRoute.changesTo,
+                                            badgeColor: matchedRoute.changeColor || window.lineColorsDict[matchedRoute.changesTo] || '#94a3b8'
+                                        };
+                                    }
+                                } else if (matchedRoute.changesTo === lineName) {
+                                    // We are viewing the second half of the journey
+                                    let firstStop = tClone.stops[0];
+                                    tClone.stops = tClone.stops.slice(changeIdx);
+                                    if (firstStop.station !== matchedRoute.changeAt) {
+                                        tClone.origin = {
+                                            station: firstStop.station,
+                                            time: firstStop.departure || firstStop.time || firstStop.arrival,
+                                            lineBadge: matchedRoute.lineName,
+                                            badgeColor: matchedRoute.color || window.lineColorsDict[matchedRoute.lineName] || '#94a3b8'
+                                        };
+                                    }
+                                }
+                            }
+                        }
+
                         if (!extractedTrains.some(et => et.id === tId)) extractedTrains.push(tClone);
                     }
                 });
@@ -240,17 +260,7 @@
                 return;
             }
 
-            let validStationsForLine = new Set();
-            window.routesData.forEach(r => {
-                if (r.lineName === lineName && !r.changeAt) {
-                    r.waypoints.forEach(w => validStationsForLine.add(w));
-                } else if (r.changeAt) {
-                    let changeIdx = r.waypoints.indexOf(r.changeAt);
-                    if (r.lineName === lineName) for(let i=0; i<=changeIdx; i++) validStationsForLine.add(r.waypoints[i]);
-                    if (r.changesTo === lineName) for(let i=changeIdx; i<r.waypoints.length; i++) validStationsForLine.add(r.waypoints[i]);
-                }
-            });
-
+            // Group by Direction
             let dir1Trains = []; let dir2Trains = [];
             let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
             let refStops = refTrain.stops.map(s => s.station);
@@ -272,7 +282,6 @@
                     let lastIndex = -1;
                     let uniqueStops = [...new Set(t.stops.map(s => s.station))];
                     uniqueStops.forEach(st => {
-                        if (!validStationsForLine.has(st)) return; 
                         let idx = master.indexOf(st);
                         if (idx === -1) { master.splice(lastIndex + 1, 0, st); lastIndex++; } 
                         else { lastIndex = idx; }
@@ -285,8 +294,8 @@
             let master2 = buildMaster(dir2Trains);
 
             let directions = {};
-            if (master1.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains, validSet: validStationsForLine };
-            if (master2.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains, validSet: validStationsForLine };
+            if (master1.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
+            if (master2.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
 
             let dirKeys = Object.keys(directions);
             controls.innerHTML = dirKeys.map((key, idx) => `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="renderTimetableGrid('${key}')">${key}</button>`).join('');
@@ -305,34 +314,23 @@
             const data = window.currentTimetableData[dirKey];
             const trains = data.trains;
             const masterStations = data.masterStations;
-            const validSet = data.validSet;
             const content = document.getElementById('tt-content');
             const footer = document.getElementById('tt-footer');
 
             let usedNotes = new Set();
             
-            // --- FLAWLESS MATHEMATICAL SORTING ALGORITHM ---
-            let refT = [...trains].sort((a,b) => b.stops.length - a.stops.length)[0];
-            let refDeltas = {};
-            let refBaseTime = timeToMins(refT.stops[0].departure || refT.stops[0].time || refT.stops[0].arrival);
-            refT.stops.forEach(s => {
-                let t = timeToMins(s.departure || s.time || s.arrival);
-                refDeltas[s.station] = t - refBaseTime;
-            });
-
-            trains.forEach(t => {
-                let sharedStop = t.stops.find(s => refDeltas[s.station] !== undefined);
-                if (sharedStop) {
-                    let actualTime = timeToMins(sharedStop.departure || sharedStop.time || sharedStop.arrival);
-                    t.virtualStartTime = actualTime - refDeltas[sharedStop.station];
-                } else {
-                    t.virtualStartTime = timeToMins(t.stops[0].departure || t.stops[0].time || t.stops[0].arrival);
+            // --- RESTORED SHARED-STATION SORTING ---
+            trains.sort((a, b) => {
+                let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
+                if (sharedSt) {
+                    let sA = a.stops.find(s => s.station === sharedSt);
+                    let sB = b.stops.find(s => s.station === sharedSt);
+                    return timeToMins(sA.departure || sA.time || sA.arrival) - timeToMins(sB.departure || sB.time || sB.arrival);
                 }
+                return timeToMins(a.stops[0].departure || a.stops[0].time || a.stops[0].arrival) - timeToMins(b.stops[0].departure || b.stops[0].time || b.stops[0].arrival);
             });
 
-            trains.sort((a, b) => a.virtualStartTime - b.virtualStartTime);
-
-            // --- BUILD TABLE ---
+            // TABLE HEADER
             let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
             trains.forEach(t => { html += `<th class="sticky-top-1">${t.id}</th>`; });
             html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
@@ -353,18 +351,18 @@
             html += `</tr></thead><tbody>`;
 
             // AUX ROW (Ze Stanice)
-            html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
-            trains.forEach(t => {
-                let firstValidIdx = t.stops.findIndex(s => validSet.has(s.station));
-                if (firstValidIdx > 0) {
-                    let origin = t.stops[0];
-                    let badge = getBadgeForTrainAtStation(t.id, origin.station);
-                    let bHtml = badge ? `<span class="tt-sm-badge" style="background:${badge.color}; color:${getContrastColor(badge.color)};">${badge.line}</span>` : '';
-                    let time = origin.departure || origin.time || origin.arrival;
-                    html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${time}</span><span>${origin.station}</span></div></td>`;
-                } else html += `<td></td>`;
-            });
-            html += `</tr>`;
+            let hasOrigins = trains.some(t => t.origin);
+            if (hasOrigins) {
+                html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
+                trains.forEach(t => {
+                    if (t.origin) {
+                        let fg = getContrastColor(t.origin.badgeColor);
+                        let bHtml = `<span class="tt-sm-badge" style="background:${t.origin.badgeColor}; color:${fg};">${t.origin.lineBadge}</span>`;
+                        html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.origin.time}</span><span>${t.origin.station}</span></div></td>`;
+                    } else html += `<td></td>`;
+                });
+                html += `</tr>`;
+            }
 
             // MAIN STATIONS
             masterStations.forEach(station => {
@@ -397,18 +395,18 @@
             });
 
             // AUX ROW (Směřuje do)
-            html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
-            trains.forEach(t => {
-                let lastValidIdx = t.stops.findLastIndex(s => validSet.has(s.station));
-                if (lastValidIdx !== -1 && lastValidIdx < t.stops.length - 1) {
-                    let dest = t.stops[t.stops.length - 1];
-                    let badge = getBadgeForTrainAtStation(t.id, dest.station);
-                    let bHtml = badge ? `<span class="tt-sm-badge" style="background:${badge.color}; color:${getContrastColor(badge.color)};">${badge.line}</span>` : '';
-                    let time = dest.arrival || dest.time || dest.departure;
-                    html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${time}</span><span>${dest.station}</span></div></td>`;
-                } else html += `<td></td>`;
-            });
-            html += `</tr>`;
+            let hasContinuations = trains.some(t => t.continuation);
+            if (hasContinuations) {
+                html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
+                trains.forEach(t => {
+                    if (t.continuation) {
+                        let fg = getContrastColor(t.continuation.badgeColor);
+                        let bHtml = `<span class="tt-sm-badge" style="background:${t.continuation.badgeColor}; color:${fg};">${t.continuation.lineBadge}</span>`;
+                        html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.continuation.time}</span><span>${t.continuation.station}</span></div></td>`;
+                    } else html += `<td></td>`;
+                });
+                html += `</tr>`;
+            }
             
             html += `</tbody></table>`;
             content.innerHTML = html;
