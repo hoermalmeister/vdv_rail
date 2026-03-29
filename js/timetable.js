@@ -5,7 +5,7 @@ window.openTimetable = function(lineName) {
     const content = document.getElementById('tt-content');
     const footer = document.getElementById('tt-footer');
     
-    if (typeof map !== 'undefined') map.closePopup();
+    if (typeof window.map !== 'undefined') window.map.closePopup();
 
     const lineColor = window.lineColorsDict[lineName] || '#ffffff';
     title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${window.getContrastColor(lineColor)}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
@@ -21,39 +21,41 @@ window.openTimetable = function(lineName) {
     for (let pdf in window.timetablesData) {
         let tDict = window.timetablesData[pdf].trains;
         if(!tDict) continue;
+        
         lineTrains.forEach(tId => {
             if (tDict[tId]) {
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
 
-                // Slicing logic (Unchanged from approved version)
                 let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
                 if (matchedRoute && matchedRoute.changeAt) {
                     let changeIdx = tClone.stops.findIndex(s => s.station === matchedRoute.changeAt);
                     if (changeIdx !== -1) {
                         let rChangeIdx = matchedRoute.waypoints.indexOf(matchedRoute.changeAt);
-                        let line1Waypoints = matchedRoute.waypoints.slice(0, rChangeIdx + 1);
-                        let line2Waypoints = matchedRoute.waypoints.slice(rChangeIdx);
+                        let line1Wps = matchedRoute.waypoints.slice(0, rChangeIdx + 1);
+                        let line2Wps = matchedRoute.waypoints.slice(rChangeIdx);
+                        
                         let trainStartDir = 0; 
                         for (let stop of tClone.stops) {
                             if (stop.station === matchedRoute.changeAt) continue;
-                            if (line1Waypoints.includes(stop.station)) { trainStartDir = 1; break; }
-                            if (line2Waypoints.includes(stop.station)) { trainStartDir = 2; break; }
+                            if (line1Wps.includes(stop.station)) { trainStartDir = 1; break; }
+                            if (line2Wps.includes(stop.station)) { trainStartDir = 2; break; }
                         }
+
                         let isFirstHalf = (matchedRoute.lineName === lineName) ? (trainStartDir === 1) : (trainStartDir === 2);
                         if (isFirstHalf) {
                             let finalStop = tClone.stops[tClone.stops.length - 1];
                             tClone.stops = tClone.stops.slice(0, changeIdx + 1);
                             if (finalStop.station !== matchedRoute.changeAt) {
-                                let nextLine = (matchedRoute.lineName === lineName) ? matchedRoute.changesTo : matchedRoute.lineName;
-                                tClone.continuation = { station: finalStop.station, time: finalStop.arrival || finalStop.time, lineBadge: nextLine, badgeColor: window.lineColorsDict[nextLine] };
+                                let nextL = (matchedRoute.lineName === lineName) ? matchedRoute.changesTo : matchedRoute.lineName;
+                                tClone.continuation = { station: finalStop.station, time: finalStop.arrival || finalStop.time || finalStop.departure, lineBadge: nextL, badgeColor: window.lineColorsDict[nextL] };
                             }
                         } else {
                             let firstStop = tClone.stops[0];
                             tClone.stops = tClone.stops.slice(changeIdx);
                             if (firstStop.station !== matchedRoute.changeAt) {
-                                let prevLine = (matchedRoute.lineName === lineName) ? matchedRoute.changesTo : matchedRoute.lineName;
-                                tClone.origin = { station: firstStop.station, time: firstStop.departure || firstStop.time, lineBadge: prevLine, badgeColor: window.lineColorsDict[prevLine] };
+                                let prevL = (matchedRoute.lineName === lineName) ? matchedRoute.changesTo : matchedRoute.lineName;
+                                tClone.origin = { station: firstStop.station, time: firstStop.departure || firstStop.time || firstStop.arrival, lineBadge: prevL, badgeColor: window.lineColorsDict[prevL] };
                             }
                         }
                     }
@@ -64,14 +66,16 @@ window.openTimetable = function(lineName) {
     }
 
     if (extractedTrains.length === 0) {
-        content.innerHTML = `<div style="padding:24px; text-align:center; color:#94a3b8;">Data nejsou k dispozici.</div>`;
+        content.innerHTML = `<div style="padding:24px; text-align:center; color:#94a3b8;">Pro tuto linku zatím nejsou k dispozici data.</div>`;
+        controls.innerHTML = ''; document.getElementById('tt-footer').innerHTML = '';
+        ttModal.style.display = 'flex';
         return;
     }
 
-    // Direction Grouping
     let dir1Trains = []; let dir2Trains = [];
     let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
     let refStops = refTrain.stops.map(s => s.station);
+
     extractedTrains.forEach(t => {
         let tStops = t.stops.map(s => s.station);
         let shared = tStops.filter(s => refStops.includes(s));
@@ -82,42 +86,53 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
-    // BACKBONE STRATEGY: Build master list from routes.json junctions first
     function buildMaster(trainsList) {
         let master = [];
-        window.routesData.forEach(r => {
-            if (r.lineName === lineName || r.changesTo === lineName) {
-                let wps = r.waypoints;
-                if (r.changeAt) {
-                    let cIdx = wps.indexOf(r.changeAt);
-                    wps = (r.lineName === lineName) ? wps.slice(0, cIdx + 1) : wps.slice(cIdx);
-                }
-                wps.forEach(wp => { if (!master.includes(wp)) master.push(wp); });
-            }
-        });
-
-        trainsList.forEach(t => {
-            let lastIdx = -1;
+        let sortedTrains = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
+        
+        if (sortedTrains.length === 0) return master;
+        
+        // Backbone Strategy for complex lines (S14 fix)
+        sortedTrains.forEach(t => {
+            let lastMasterIdx = -1;
             t.stops.forEach(s => {
                 let idx = master.indexOf(s.station);
-                if (idx !== -1) lastIdx = idx;
-                else {
-                    if (lastIdx !== -1) { master.splice(lastIdx + 1, 0, s.station); lastIdx++; }
-                    else { master.unshift(s.station); lastIdx = 0; }
+                if (idx !== -1) {
+                    lastMasterIdx = idx;
+                } else {
+                    let nextIdx = -1;
+                    let tStops = t.stops.map(st => st.station);
+                    let currTIdx = tStops.indexOf(s.station);
+                    for (let k = currTIdx + 1; k < tStops.length; k++) {
+                        let nIdx = master.indexOf(tStops[k]);
+                        if (nIdx !== -1) { nextIdx = nIdx; break; }
+                    }
+
+                    if (lastMasterIdx !== -1) {
+                        master.splice(lastMasterIdx + 1, 0, s.station);
+                        lastMasterIdx++;
+                    } else if (nextIdx !== -1) {
+                        master.splice(nextIdx, 0, s.station);
+                    } else {
+                        master.push(s.station);
+                        lastMasterIdx = master.length - 1;
+                    }
                 }
             });
         });
-        return [...new Set(master)];
+        return master;
     }
 
-    let m1 = buildMaster(dir1Trains);
-    let m2 = buildMaster(dir2Trains);
+    let master1 = buildMaster(dir1Trains);
+    let master2 = buildMaster(dir2Trains);
+
     let directions = {};
-    if (m1.length > 0) directions[`Směr ${m1[m1.length-1]}`] = { masterStations: m1, trains: dir1Trains };
-    if (m2.length > 0) directions[`Směr ${m2[m2.length-1]}`] = { masterStations: m2, trains: dir2Trains };
+    if (master1.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
+    if (master2.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
 
     let dirKeys = Object.keys(directions);
     controls.innerHTML = dirKeys.map((key, idx) => `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="window.renderTimetableGrid('${key}')">${key}</button>`).join('');
+
     window.currentTimetableData = directions;
     window.renderTimetableGrid(dirKeys[0]);
     ttModal.style.display = 'flex';
@@ -129,21 +144,31 @@ window.renderTimetableGrid = function(dirKey) {
     const content = document.getElementById('tt-content');
     const footer = document.getElementById('tt-footer');
 
-    // Sorting (Unchanged)
+    let usedNotes = new Set();
+    
     trains.sort((a, b) => {
         let shared = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (shared) {
             let sA = a.stops.find(s => s.station === shared);
             let sB = b.stops.find(s => s.station === shared);
-            return window.timeToMins(sA.departure || sA.time) - window.timeToMins(sB.departure || sB.time);
+            return window.timeToMins(sA.departure || sA.time || sA.arrival) - window.timeToMins(sB.departure || sB.time || sB.arrival);
         }
-        return window.timeToMins(a.stops[0].departure || a.stops[0].time) - window.timeToMins(b.stops[0].departure || b.stops[0].time);
+        return window.timeToMins(a.stops[0].departure || a.stops[0].time || a.stops[0].arrival) - window.timeToMins(b.stops[0].departure || b.stops[0].time || b.stops[0].arrival);
     });
 
     let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
     trains.forEach(t => html += `<th class="sticky-top-1">${t.id}</th>`);
     html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
-    trains.forEach(t => html += `<th class="sticky-top-2">${(t.notes || []).join(' ')}</th>`);
+    trains.forEach(t => {
+        let nHtml = [];
+        (t.notes || []).forEach((n, i) => {
+            let v = (t.notes_validity && t.notes_validity[i]) ? t.notes_validity[i] : null;
+            usedNotes.add(n);
+            if (v && v.toLowerCase() !== "all") nHtml.push(`<span class="tt-note-badge clickable-note" onclick="alert('Poznámka ${n}\\nPlatí pouze pro úsek:\\n${v}')" title="Klikněte pro zobrazení úseku">${n}*</span>`);
+            else nHtml.push(`<span class="tt-note-badge">${n}</span>`);
+        });
+        html += `<th class="sticky-top-2">${nHtml.join(' ')}</th>`;
+    });
     html += `</tr></thead><tbody>`;
 
     if (trains.some(t => t.origin)) {
@@ -160,13 +185,20 @@ window.renderTimetableGrid = function(dirKey) {
     masterStations.forEach(station => {
         html += `<tr><td class="sticky-col">${station}</td>`;
         trains.forEach(t => {
-            let s_list = t.stops.filter(s => s.station === station);
-            let first = masterStations.indexOf(t.stops[0].station), last = masterStations.indexOf(t.stops[t.stops.length-1].station), curr = masterStations.indexOf(station);
-            if (s_list.length > 0) {
-                let time = s_list[0].time || s_list[0].departure || s_list[0].arrival;
-                html += `<td><span class="tt-time">${time}</span></td>`;
+            let sList = t.stops.filter(s => s.station === station);
+            let fIdx = masterStations.indexOf(t.stops[0].station), lIdx = masterStations.indexOf(t.stops[t.stops.length-1].station), cIdx = masterStations.indexOf(station);
+            
+            if (sList.length > 0) {
+                let rIcon = sList.some(s => s.request_stop) ? `<span class="tt-req">×</span>` : '';
+                if (sList.length === 1 && !sList[0].arrival && !sList[0].departure) {
+                    html += `<td>${rIcon}<span class="tt-time">${sList[0].time || ''}</span></td>`;
+                } else {
+                    let aT = sList[0].arrival || sList[0].time, dT = sList[sList.length - 1].departure || sList[sList.length - 1].time;
+                    if (aT === dT) html += `<td>${rIcon}<span class="tt-time">${aT}</span></td>`;
+                    else html += `<td><div class="arr-dep-box"><div class="arr-time">${rIcon}<span class="time-lbl">př</span><span class="tt-time">${aT}</span></div><div class="dep-time"><span class="time-lbl">od</span><span class="tt-time">${dT}</span></div></div></td>`;
+                }
             } else {
-                html += `<td>${(curr > first && curr < last) ? '<span class="tt-pass">|</span>' : ''}</td>`;
+                html += `<td>${(cIdx > fIdx && cIdx < lIdx) ? '<span class="tt-pass">|</span>' : ''}</td>`;
             }
         });
         html += `</tr>`;
@@ -182,8 +214,14 @@ window.renderTimetableGrid = function(dirKey) {
         });
         html += `</tr>`;
     }
+    
     html += `</tbody></table>`;
     content.innerHTML = html;
+
+    let fHtml = `<div class="legend-grid">`;
+    usedNotes.forEach(note => fHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${window.notesDict[note] || "Neznámá poznámka"}</div>`);
+    fHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:16px;">×</span> Zastávka na znamení</div></div>`;
+    footer.innerHTML = fHtml;
 };
 
 window.closeTimetable = function() { document.getElementById('tt-modal').style.display = 'none'; };
