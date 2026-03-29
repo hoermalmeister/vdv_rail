@@ -59,19 +59,18 @@
         .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; }
         table.modern-tt { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; color: #e2e8f0; }
         
-        /* RESTORED ELEGANT STICKY HEADERS */
+        /* RESTORED STICKY HEADERS & ISOLATED STATION COLUMN */
         table.modern-tt th { position: sticky; background: #1e293b; padding: 10px 8px; font-weight: 600; color: #cbd5e1; border-right: 1px solid rgba(255,255,255,0.05); z-index: 5; white-space: nowrap; }
         table.modern-tt thead tr:first-child th { top: 0; height: 40px; box-sizing: border-box; }
         .tt-note-row th { top: 40px; height: 32px; font-size: 11px; color: #94a3b8; background: #0f172a; border-bottom: 2px solid #334155; box-sizing: border-box; }
         
-        /* WIDER, WRAPPING STATION COLUMN */
-        table.modern-tt th:first-child, table.modern-tt td:first-child { 
+        .sticky-col { 
             position: sticky; left: 0; text-align: left; 
             background: #1e293b; border-right: 2px solid #334155; 
             font-weight: 600; z-index: 10; padding: 10px 16px; 
             min-width: 180px; max-width: 250px; white-space: normal; line-height: 1.3;
         }
-        table.modern-tt th:first-child { z-index: 15; vertical-align: middle; padding-bottom: 10px; } 
+        th.sticky-corner { z-index: 30; white-space: nowrap; vertical-align: middle; padding-bottom: 10px; } 
 
         table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
         table.modern-tt tbody tr:hover { background: rgba(255,255,255,0.03); }
@@ -80,11 +79,18 @@
         .tt-note-badge { display: inline-block; margin: 0 3px; }
         .clickable-note { color: #38bdf8; cursor: pointer; border-bottom: 1px dotted #38bdf8; padding-bottom: 1px; }
 
-        /* Arrival/Departure Split */
+        /* Arrival/Departure & Change Badges */
         .arr-dep-box { display: flex; flex-direction: column; gap: 4px; }
         .arr-time { color: #94a3b8; font-size: 12px; display: flex; justify-content: center; gap: 4px; align-items: center; }
         .dep-time { color: #e2e8f0; font-size: 14px; display: flex; justify-content: center; gap: 4px; align-items: center; }
         .time-lbl { font-size: 9px; text-transform: uppercase; opacity: 0.7; }
+        .tt-cell-flex { display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+        .tt-sm-badge { 
+            display: inline-flex; align-items: center; justify-content: center; 
+            padding: 2px 4px; border-radius: 3px; font-weight: 700; font-size: 9px; 
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); line-height: 1; 
+        }
 
         .tt-time { font-family: monospace; font-size: 14px; }
         .tt-req { color: #facc15; font-size: 11px; vertical-align: super; margin-right: 2px; }
@@ -103,7 +109,7 @@
             .map-legend { max-height: 38dvh; overflow-y: auto; }
             .timetable-box { width: 100%; height: 100%; border-radius: 0; }
             .timetable-header { border-radius: 0; padding: 12px 16px; }
-            table.modern-tt th:first-child, table.modern-tt td:first-child { min-width: 140px; padding-left: 12px; }
+            .sticky-col { min-width: 140px; padding-left: 12px; }
         }
     </style>
 </head>
@@ -144,15 +150,14 @@
             return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 140) ? '#1a1a1a' : '#ffffff';
         }
 
-        // --- Helper: Convert Time to Minutes for Perfect Sorting ---
-        // Pushes any time before 03:00 AM past midnight for proper ordering
+        // Helper: Convert Time to Minutes for Perfect Sorting (Handles Midnight crossovers)
         function timeToMins(timeStr) {
             if (!timeStr) return 99999;
             let match = timeStr.toString().match(/\d{1,2}[\.,:]\d{2}/);
             if (!match) return 99999;
-            let parts = match[0].replace(':', '.').split('.');
+            let parts = match[0].replace(':', '.').replace(',', '.').split('.');
             let m = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-            return m < 180 ? m + 1440 : m; 
+            return m < 180 ? m + 1440 : m; // Shifts times before 03:00 to the "next day" for sorting
         }
 
         const map = L.map('map').setView([49.4, 15.6], 9);
@@ -202,21 +207,62 @@
             
             title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${textColor}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
 
-            let lineTrains = new Set();
-            window.routesData.forEach(r => {
-                if (r.lineName === lineName || r.changesTo === lineName) {
-                    if (r.trainNames) r.trainNames.forEach(t => lineTrains.add(t));
-                }
-            });
-
             let extractedTrains = [];
+            
             for (let pdf in window.timetablesData) {
                 let tDict = window.timetablesData[pdf].trains;
                 if(!tDict) continue;
                 
-                lineTrains.forEach(tId => {
-                    if (tDict[tId]) {
-                        extractedTrains.push({ id: tId, ...tDict[tId] });
+                window.routesData.forEach(route => {
+                    if (route.lineName === lineName || route.changesTo === lineName) {
+                        if (route.trainNames) {
+                            route.trainNames.forEach(tId => {
+                                if (tDict[tId]) {
+                                    // Deep copy to prevent polluting master data
+                                    let tClone = JSON.parse(JSON.stringify(tDict[tId]));
+                                    tClone.id = tId;
+
+                                    // Apply Splitting Logic for Lines with "changeAt"
+                                    if (route.changeAt) {
+                                        let changeIdx = tClone.stops.findIndex(s => s.station === route.changeAt);
+                                        if (changeIdx !== -1) {
+                                            if (route.lineName === lineName) {
+                                                // We are viewing the Origin side of the route
+                                                let validStops = tClone.stops.slice(0, changeIdx + 1);
+                                                let finalStop = tClone.stops[tClone.stops.length - 1];
+                                                if (finalStop.station !== route.changeAt) {
+                                                    validStops.push({
+                                                        ...finalStop,
+                                                        isContinuation: true,
+                                                        lineBadge: route.changesTo,
+                                                        badgeColor: route.changeColor || window.lineColorsDict[route.changesTo] || '#fff'
+                                                    });
+                                                }
+                                                tClone.stops = validStops;
+                                            } else if (route.changesTo === lineName) {
+                                                // We are viewing the Destination side of the route
+                                                let validStops = tClone.stops.slice(changeIdx);
+                                                let firstStop = tClone.stops[0];
+                                                if (firstStop.station !== route.changeAt) {
+                                                    validStops.unshift({
+                                                        ...firstStop,
+                                                        isOrigin: true,
+                                                        lineBadge: route.lineName,
+                                                        badgeColor: route.color || window.lineColorsDict[route.lineName] || '#fff'
+                                                    });
+                                                }
+                                                tClone.stops = validStops;
+                                            }
+                                        }
+                                    }
+
+                                    // Ensure we don't push duplicates
+                                    if (!extractedTrains.some(et => et.id === tId)) {
+                                        extractedTrains.push(tClone);
+                                    }
+                                }
+                            });
+                        }
                     }
                 });
             }
@@ -255,7 +301,6 @@
                 }
             });
 
-            // Extracts strictly unique station names in chronological order
             function buildMaster(trainsList) {
                 if(trainsList.length === 0) return [];
                 let master = [];
@@ -313,13 +358,13 @@
                 if (sharedStation) {
                     let sA = a.stops.find(s => s.station === sharedStation);
                     let sB = b.stops.find(s => s.station === sharedStation);
-                    return timeToMins(sA.time || sA.arrival || sA.departure) - timeToMins(sB.time || sB.arrival || sB.departure);
+                    return timeToMins(sA.departure || sA.time || sA.arrival) - timeToMins(sB.departure || sB.time || sB.arrival);
                 }
-                return timeToMins(a.stops[0].time || a.stops[0].arrival) - timeToMins(b.stops[0].time || b.stops[0].arrival);
+                return timeToMins(a.stops[0].departure || a.stops[0].time || a.stops[0].arrival) - timeToMins(b.stops[0].departure || b.stops[0].time || b.stops[0].arrival);
             });
 
-            // 1. Build RESTORED Elegant Headers
-            let html = `<table class="modern-tt"><thead><tr><th rowspan="2">Stanice</th>`;
+            // 1. Build Isolated Sticky Headers
+            let html = `<table class="modern-tt"><thead><tr><th rowspan="2" class="sticky-col sticky-corner">Stanice</th>`;
             trains.forEach(t => { html += `<th>${t.id}</th>`; });
             html += `</tr><tr class="tt-note-row">`;
             
@@ -330,7 +375,7 @@
                     usedNotes.add(n);
                     
                     if (validity && validity.toLowerCase() !== "all") {
-                        // Interactive Clickable Section Notes
+                        // Section Note (Clickable for Mobile)
                         notesHtml.push(`<span class="tt-note-badge clickable-note" onclick="alert('Poznámka ${n}\\nPlatí pouze pro úsek:\\n${validity}')" title="Klikněte pro zobrazení úseku">${n}*</span>`);
                     } else {
                         notesHtml.push(`<span class="tt-note-badge">${n}</span>`);
@@ -340,19 +385,24 @@
             });
             html += `</tr></thead><tbody>`;
 
-            // 2. Build Body (With Arrival/Departure Stack Logic)
+            // 2. Build Body (Arrival/Departure & Split Line Logic)
             masterStations.forEach(station => {
-                html += `<tr><td>${station}</td>`;
+                html += `<tr><td class="sticky-col">${station}</td>`;
                 trains.forEach(t => {
-                    // Extract all stops for this specific station in this train
                     let s_list = t.stops.filter(s => s.station === station);
                     
                     if (s_list.length > 0) {
                         let reqIcon = s_list.some(s => s.request_stop) ? `<span class="tt-req">×</span>` : '';
                         
+                        let badgeHtml = '';
+                        if (s_list[0].isContinuation || s_list[0].isOrigin) {
+                            let fg = getContrastColor(s_list[0].badgeColor);
+                            badgeHtml = `<span class="tt-sm-badge" style="background:${s_list[0].badgeColor}; color:${fg}; margin-right:4px;">${s_list[0].lineBadge}</span>`;
+                        }
+                        
                         // Scenario A: Single Time recorded
                         if (s_list.length === 1 && !s_list[0].arrival && !s_list[0].departure) {
-                            html += `<td>${reqIcon}<span class="tt-time">${s_list[0].time || ''}</span></td>`;
+                            html += `<td><div class="tt-cell-flex">${badgeHtml}${reqIcon}<span class="tt-time">${s_list[0].time || ''}</span></div></td>`;
                         } 
                         // Scenario B: Multiple Times / Explicit Arr-Dep recorded
                         else {
@@ -360,12 +410,12 @@
                             let depTime = s_list[s_list.length - 1].departure || s_list[s_list.length - 1].time;
                             
                             if (arrTime === depTime) {
-                                html += `<td>${reqIcon}<span class="tt-time">${arrTime}</span></td>`;
+                                html += `<td><div class="tt-cell-flex">${badgeHtml}${reqIcon}<span class="tt-time">${arrTime}</span></div></td>`;
                             } else {
                                 html += `<td>
                                     <div class="arr-dep-box">
-                                        <div class="arr-time">${reqIcon}<span class="time-lbl">př</span><span class="tt-time">${arrTime}</span></div>
-                                        <div class="dep-time"><span class="time-lbl">od</span><span class="tt-time">${depTime}</span></div>
+                                        <div class="arr-time">${badgeHtml}${reqIcon}<span class="time-lbl">př</span><span class="tt-time">${arrTime}</span></div>
+                                        <div class="dep-time">${badgeHtml}${reqIcon}<span class="time-lbl">od</span><span class="tt-time">${depTime}</span></div>
                                     </div>
                                 </td>`;
                             }
