@@ -19,7 +19,6 @@
         .leaflet-tooltip { background-color: rgba(25, 30, 36, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); border-radius: 8px; padding: 12px 16px; font-size: 13px; pointer-events: none; }
         .leaflet-tooltip::before, .leaflet-tooltip::after { display: none !important; }
         
-        /* The "Fixed" Click Popups */
         .custom-popup .leaflet-popup-content-wrapper { background-color: rgba(25, 30, 36, 0.98); border: 1px solid rgba(255, 255, 255, 0.15); color: #f1f5f9; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8); border-radius: 8px; padding: 0; }
         .custom-popup .leaflet-popup-content { margin: 12px 16px; font-size: 13px; min-width: 200px; }
         .custom-popup .leaflet-popup-tip-container { display: none !important; }
@@ -61,33 +60,47 @@
         
         .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; }
         table.modern-tt { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; color: #e2e8f0; }
-        table.modern-tt th { background: #1e293b; padding: 12px 8px; font-weight: 600; color: #cbd5e1; border-bottom: 2px solid #334155; border-right: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; z-index: 5; white-space: nowrap; }
-        table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
-        table.modern-tt tbody tr:hover { background: rgba(255,255,255,0.03); }
+        
+        /* THE STICKY HEADER MAGIC */
+        table.modern-tt th { background: #1e293b; padding: 12px 8px; font-weight: 600; color: #cbd5e1; border-bottom: 2px solid #334155; border-right: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; z-index: 20; vertical-align: bottom; }
         
         /* WIDER STATION COLUMN */
         table.modern-tt th:first-child, table.modern-tt td:first-child { 
             position: sticky; left: 0; text-align: left; 
             background: #1e293b; border-right: 2px solid #334155; 
             font-weight: 600; z-index: 10; padding: 10px 16px; 
-            min-width: 220px; max-width: 280px; white-space: normal; line-height: 1.3;
+            min-width: 180px; max-width: 250px; white-space: normal; line-height: 1.3;
         }
-        table.modern-tt th:first-child { z-index: 15; white-space: nowrap; } 
+        /* Top Left Corner needs highest Z-index so it stays above both rows and columns */
+        table.modern-tt th:first-child { z-index: 30; white-space: nowrap; vertical-align: middle; } 
+
+        table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+        table.modern-tt tbody tr:hover { background: rgba(255,255,255,0.03); }
         
-        /* NOTES HEADER & ICONS */
-        .tt-note-row th { font-size: 11px; color: #94a3b8; background: #0f172a; top: 43px; border-bottom: 1px solid #334155; padding: 6px 8px; }
-        .tt-note-badge { display: inline-block; margin: 0 3px; }
-        .tt-note-badge[title] { border-bottom: 1px dotted #94a3b8; cursor: help; color: #f8fafc; }
+        /* Train Header Formatting */
+        .tt-train-id { font-weight: 700; color: #f1f5f9; font-size: 14px; margin-bottom: 6px; }
+        .tt-train-notes { font-size: 11px; color: #94a3b8; font-weight: 400; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
+        .tt-note-badge { display: inline-flex; align-items: center; }
+        .tt-note-badge sup { color: #38bdf8; font-weight: 700; margin-left: 1px; font-size: 9px; }
         
+        /* Arrival / Departure Styling */
+        .arr-dep-box { display: flex; flex-direction: column; gap: 2px; }
+        .arr-time { color: #94a3b8; font-size: 11px; display: flex; justify-content: center; gap: 4px; align-items: center; }
+        .dep-time { color: #e2e8f0; font-size: 14px; display: flex; justify-content: center; gap: 4px; align-items: center; }
+        .time-lbl { font-size: 9px; text-transform: uppercase; opacity: 0.7; }
+
         .tt-time { font-family: monospace; font-size: 14px; }
-        .tt-req { color: #facc15; font-size: 10px; vertical-align: super; margin-right: 2px; }
+        .tt-req { color: #facc15; font-size: 12px; margin-right: 4px; font-weight: 700; }
         .tt-pass { color: #475569; }
 
-        .timetable-footer { padding: 16px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-direction: column; gap: 8px; }
+        /* Footer & Legend */
+        .timetable-footer { padding: 16px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; font-size: 12px; color: #94a3b8; display: flex; flex-direction: column; gap: 12px; }
         .legend-grid { display: flex; flex-wrap: wrap; gap: 16px; }
         .note-item { display: flex; gap: 6px; align-items: baseline; }
         .note-sym { font-weight: 700; color: #cbd5e1; }
-        .section-note-hint { color: #64748b; font-style: italic; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;}
+        .section-note-item { background: rgba(56, 189, 248, 0.1); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2); color: #cbd5e1; }
+        .section-note-item sup { color: #38bdf8; font-weight: 700; }
+        .validity-text { color: #94a3b8; font-style: italic; margin-left: 4px; }
 
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -98,7 +111,8 @@
             .map-legend { max-height: 38dvh; overflow-y: auto; }
             .timetable-box { width: 100%; height: 100%; border-radius: 0; }
             .timetable-header { border-radius: 0; padding: 12px 16px; }
-            table.modern-tt th:first-child, table.modern-tt td:first-child { min-width: 160px; padding-left: 12px; }
+            table.modern-tt th:first-child, table.modern-tt td:first-child { min-width: 140px; padding-left: 12px; }
+            .legend-grid { gap: 10px; flex-direction: column; }
         }
     </style>
 </head>
@@ -137,6 +151,15 @@
             if (hexColor.length !== 6) return '#ffffff';
             const r = parseInt(hexColor.slice(0, 2), 16), g = parseInt(hexColor.slice(2, 4), 16), b = parseInt(hexColor.slice(4, 6), 16);
             return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 140) ? '#1a1a1a' : '#ffffff';
+        }
+
+        // --- Helper: Convert Time to Minutes for Robust Sorting ---
+        function timeToMins(timeStr) {
+            if (!timeStr) return 99999;
+            let match = timeStr.toString().match(/\d{1,2}[\.,:]\d{2}/);
+            if (!match) return 99999;
+            let parts = match[0].replace(':', '.').split('.');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
         }
 
         const map = L.map('map').setView([49.4, 15.6], 9);
@@ -179,7 +202,6 @@
             const content = document.getElementById('tt-content');
             const footer = document.getElementById('tt-footer');
 
-            // Close popups on map when opening timetable
             map.closePopup();
 
             const lineColor = window.lineColorsDict[lineName] || '#ffffff';
@@ -293,42 +315,66 @@
             const footer = document.getElementById('tt-footer');
 
             let usedNotes = new Set();
-            let hasSectionNotes = false;
+            let sectionValidityCounter = 1;
+            let sectionValidityMap = {};
+            let sectionValidityDetails = [];
             
+            // Strictly Chronological Sorting by First Stop Time
             trains.sort((a, b) => {
-                let timeA = parseFloat(a.stops[0].time.replace(':', '.')) || 9999;
-                let timeB = parseFloat(b.stops[0].time.replace(':', '.')) || 9999;
+                let stopA = a.stops[0];
+                let stopB = b.stops[0];
+                let timeA = timeToMins(stopA.departure || stopA.time || stopA.arrival);
+                let timeB = timeToMins(stopB.departure || stopB.time || stopB.arrival);
                 return timeA - timeB;
             });
 
             let html = `<table class="modern-tt"><thead><tr><th>Stanice</th>`;
-            trains.forEach(t => { html += `<th>${t.id}</th>`; });
-            html += `</tr><tr class="tt-note-row"><th></th>`;
             
-            trains.forEach(t => {
+            // Build the Combined Header (Train ID + Notes)
+            trains.forEach(t => { 
                 let notesHtml = [];
                 (t.notes || []).forEach((n, idx) => {
                     let validity = (t.notes_validity && t.notes_validity[idx]) ? t.notes_validity[idx] : null;
                     usedNotes.add(n);
                     
                     if (validity && validity.toLowerCase() !== "all") {
-                        hasSectionNotes = true;
-                        notesHtml.push(`<span class="tt-note-badge" title="Platí pro úsek: ${validity}">${n}*</span>`);
+                        let valKey = `${n}_${validity}`;
+                        if (!sectionValidityMap[valKey]) {
+                            sectionValidityMap[valKey] = sectionValidityCounter++;
+                            sectionValidityDetails.push({ note: n, validity: validity, sup: sectionValidityMap[valKey] });
+                        }
+                        notesHtml.push(`<span class="tt-note-badge">${n}<sup>${sectionValidityMap[valKey]}</sup></span>`);
                     } else {
                         notesHtml.push(`<span class="tt-note-badge">${n}</span>`);
                     }
                 });
-                html += `<th>${notesHtml.join(' ')}</th>`;
+                
+                let notesWrapper = notesHtml.length > 0 ? `<div class="tt-train-notes">${notesHtml.join(' ')}</div>` : '';
+                html += `<th><div class="tt-train-id">${t.id}</div>${notesWrapper}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
+            // Build Body (Arrival and Departure logic)
             masterStations.forEach(station => {
                 html += `<tr><td>${station}</td>`;
                 trains.forEach(t => {
                     let stop = t.stops.find(s => s.station === station);
                     if (stop) {
-                        let reqIcon = stop.request_stop ? `<span class="tt-req">×</span>` : '';
-                        html += `<td>${reqIcon}<span class="tt-time">${stop.time}</span></td>`;
+                        let isReq = stop.request_stop || stop.request_stop_arrival || stop.request_stop_departure;
+                        let reqIcon = isReq ? `<span class="tt-req">×</span>` : '';
+                        
+                        let timeContent = '';
+                        if (stop.arrival && stop.departure) {
+                            timeContent = `<div class="arr-dep-box">
+                                <div class="arr-time">${reqIcon}<span class="time-lbl">př</span> <span class="tt-time">${stop.arrival}</span></div>
+                                <div class="dep-time">${reqIcon}<span class="time-lbl">od</span> <span class="tt-time">${stop.departure}</span></div>
+                            </div>`;
+                        } else {
+                            let singleTime = stop.time || stop.arrival || stop.departure || '';
+                            timeContent = `${reqIcon}<span class="tt-time">${singleTime}</span>`;
+                        }
+                        
+                        html += `<td>${timeContent}</td>`;
                     } else {
                         html += `<td><span class="tt-pass">|</span></td>`;
                     }
@@ -341,14 +387,27 @@
 
             // Generate Legend Footer
             let footerHtml = `<div class="legend-grid">`;
+            
+            // Standard global notes
             usedNotes.forEach(note => {
                 let meaning = window.notesDict[note] || "Neznámá poznámka";
                 footerHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${meaning}</div>`;
             });
-            footerHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:14px;">×</span> Zastávka na znamení</div></div>`;
+            footerHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:16px;">×</span> Zastávka na znamení</div></div>`;
             
-            if (hasSectionNotes) {
-                footerHtml += `<div class="section-note-hint">* Najetím myší na poznámku s hvězdičkou v hlavičce vlaku se zobrazí úsek, pro který poznámka platí.</div>`;
+            // Section-Specific Footnotes
+            if (sectionValidityDetails.length > 0) {
+                footerHtml += `<div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">Omezení úseků</div>
+                    <div class="legend-grid">`;
+                sectionValidityDetails.forEach(detail => {
+                    let meaning = window.notesDict[detail.note] || "Neznámá poznámka";
+                    footerHtml += `<div class="note-item section-note-item">
+                                        <sup>${detail.sup}</sup> <span class="note-sym">${detail.note}</span>: ${meaning} 
+                                        <span class="validity-text">(Platí pouze pro úsek: ${detail.validity})</span>
+                                   </div>`;
+                });
+                footerHtml += `</div></div>`;
             }
             
             footer.innerHTML = footerHtml;
@@ -466,7 +525,7 @@
                     const interactionLine = L.polyline(latlngs, { color: '#000', weight: hitBoxWeight, opacity: 0, offset: offset }).addTo(map);
 
                     const hoverHtml = generateLineTooltipHtml(segData, false);
-                    const clickHtml = generateLineTooltipHtml(segData, true); // No timetable button here anymore
+                    const clickHtml = generateLineTooltipHtml(segData, true); // Button removed
 
                     interactionLine.bindTooltip(hoverHtml, { sticky: true });
                     interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
