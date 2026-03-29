@@ -63,7 +63,7 @@ window.openTimetable = function(lineName) {
                                     station: finalStop.station,
                                     time: finalStop.arrival || finalStop.time || finalStop.departure,
                                     lineBadge: nextLine,
-                                    badgeColor: matchedRoute.changeColor || window.lineColorsDict[nextLine] || '#94a3b8'
+                                    badgeColor: window.lineColorsDict[nextLine] || '#94a3b8'
                                 };
                             }
                         } else {
@@ -76,7 +76,7 @@ window.openTimetable = function(lineName) {
                                     station: firstStop.station,
                                     time: firstStop.departure || firstStop.time || firstStop.arrival,
                                     lineBadge: prevLine,
-                                    badgeColor: matchedRoute.color || window.lineColorsDict[prevLine] || '#94a3b8'
+                                    badgeColor: window.lineColorsDict[prevLine] || '#94a3b8'
                                 };
                             }
                         }
@@ -109,56 +109,47 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
-    // FLAWLESS FIX: Directed Acyclic Graph (DAG) Topological Sort for Station Order
+    // FIXED: Build the station order using routes.json backbone to correctly handle branched lines like S14
     function buildMaster(trainsList) {
-        let adj = {};
-        let inDegree = {};
-        let stations = new Set();
-
-        // Register all nodes
-        trainsList.forEach(t => {
-            t.stops.forEach(s => {
-                stations.add(s.station);
-                if (!adj[s.station]) adj[s.station] = new Set();
-                if (inDegree[s.station] === undefined) inDegree[s.station] = 0;
-            });
-        });
-
-        // Build directed edges (A precedes B)
-        trainsList.forEach(t => {
-            for (let i = 0; i < t.stops.length - 1; i++) {
-                let u = t.stops[i].station;
-                let v = t.stops[i+1].station;
-                if (!adj[u].has(v)) {
-                    adj[u].add(v);
-                    inDegree[v] = (inDegree[v] || 0) + 1;
+        let master = [];
+        
+        // Step 1: Lay down the major junctions exactly as defined in routes.json
+        window.routesData.forEach(r => {
+            if (r.lineName === lineName || r.changesTo === lineName) {
+                let waypoints = r.waypoints;
+                if (r.changeAt) {
+                    let cIdx = waypoints.indexOf(r.changeAt);
+                    if (r.lineName === lineName) waypoints = waypoints.slice(0, cIdx + 1);
+                    if (r.changesTo === lineName) waypoints = waypoints.slice(cIdx);
                 }
+                waypoints.forEach(wp => {
+                    if (!master.includes(wp)) master.push(wp);
+                });
             }
         });
 
-        // Kahn's Algorithm
-        let queue = [];
-        let master = [];
-
-        stations.forEach(st => {
-            if (inDegree[st] === 0) queue.push(st);
-        });
-
-        while (queue.length > 0) {
-            let u = queue.shift();
-            master.push(u);
-            adj[u].forEach(v => {
-                inDegree[v]--;
-                if (inDegree[v] === 0) queue.push(v);
+        // Step 2: Slot the intermediate stations into the backbone
+        trainsList.forEach(t => {
+            let lastBackboneIdx = -1;
+            t.stops.forEach(s => {
+                let idx = master.indexOf(s.station);
+                if (idx !== -1) {
+                    lastBackboneIdx = idx; // Update our anchor
+                } else {
+                    // Station not in master list. Insert it right after the last known anchor.
+                    if (lastBackboneIdx !== -1) {
+                        master.splice(lastBackboneIdx + 1, 0, s.station);
+                        lastBackboneIdx++; 
+                    } else {
+                        // If it appears before the very first anchor
+                        master.unshift(s.station);
+                        lastBackboneIdx = 0;
+                    }
+                }
             });
-        }
-
-        // Failsafe for cycles (Should not happen in schedules)
-        stations.forEach(st => {
-            if (!master.includes(st)) master.push(st);
         });
-
-        return master;
+        
+        return [...new Set(master)];
     }
 
     let master1 = buildMaster(dir1Trains);
@@ -190,7 +181,6 @@ window.renderTimetableGrid = function(dirKey) {
 
     let usedNotes = new Set();
     
-    // Stable Shared-Station Time Sorting
     trains.sort((a, b) => {
         let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (sharedSt) {
@@ -220,7 +210,6 @@ window.renderTimetableGrid = function(dirKey) {
     });
     html += `</tr></thead><tbody>`;
 
-    // Ze směru
     let hasOrigins = trains.some(t => t.origin);
     if (hasOrigins) {
         html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
@@ -234,7 +223,6 @@ window.renderTimetableGrid = function(dirKey) {
         html += `</tr>`;
     }
 
-    // MAIN STATIONS GRID
     masterStations.forEach(station => {
         html += `<tr><td class="sticky-col">${station}</td>`;
         trains.forEach(t => {
@@ -273,7 +261,6 @@ window.renderTimetableGrid = function(dirKey) {
         html += `</tr>`;
     });
 
-    // Směřuje do
     let hasContinuations = trains.some(t => t.continuation);
     if (hasContinuations) {
         html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
