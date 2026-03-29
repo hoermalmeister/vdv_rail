@@ -29,14 +29,12 @@ window.openTimetable = function(lineName) {
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
 
-                // DIRECTION-AWARE SPLIT JOURNEY LOGIC
                 let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
                 
                 if (matchedRoute && matchedRoute.changeAt) {
                     let changeIdx = tClone.stops.findIndex(s => s.station === matchedRoute.changeAt);
                     
                     if (changeIdx !== -1) {
-                        // 1. Identify which half of the physical line the train hits first
                         let rChangeIdx = matchedRoute.waypoints.indexOf(matchedRoute.changeAt);
                         let line1Waypoints = matchedRoute.waypoints.slice(0, rChangeIdx + 1);
                         let line2Waypoints = matchedRoute.waypoints.slice(rChangeIdx);
@@ -48,7 +46,6 @@ window.openTimetable = function(lineName) {
                             if (line2Waypoints.includes(stop.station)) { trainStartDir = 2; break; }
                         }
 
-                        // 2. Compare train's actual direction with the requested line Name
                         let isFirstHalfOfArray = false;
                         if (matchedRoute.lineName === lineName) { 
                             isFirstHalfOfArray = (trainStartDir === 1); 
@@ -56,7 +53,6 @@ window.openTimetable = function(lineName) {
                             isFirstHalfOfArray = (trainStartDir === 2); 
                         }
 
-                        // 3. Slice
                         if (isFirstHalfOfArray) {
                             let finalStop = tClone.stops[tClone.stops.length - 1];
                             tClone.stops = tClone.stops.slice(0, changeIdx + 1);
@@ -99,7 +95,6 @@ window.openTimetable = function(lineName) {
         return;
     }
 
-    // Direction Grouping
     let dir1Trains = []; let dir2Trains = [];
     let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
     let refStops = refTrain.stops.map(s => s.station);
@@ -114,23 +109,55 @@ window.openTimetable = function(lineName) {
         } else dir1Trains.push(t); 
     });
 
-    // Build Master Station List Naturally
+    // FLAWLESS FIX: Directed Acyclic Graph (DAG) Topological Sort for Station Order
     function buildMaster(trainsList) {
-        let master = [];
-        let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
-        sorted.forEach(t => {
-            let lastIndex = -1;
-            let uniqueStops = [...new Set(t.stops.map(s => s.station))];
-            uniqueStops.forEach(st => {
-                let idx = master.indexOf(st);
-                if (idx === -1) { 
-                    master.splice(lastIndex + 1, 0, st); 
-                    lastIndex++; 
-                } else { 
-                    lastIndex = idx; 
-                }
+        let adj = {};
+        let inDegree = {};
+        let stations = new Set();
+
+        // Register all nodes
+        trainsList.forEach(t => {
+            t.stops.forEach(s => {
+                stations.add(s.station);
+                if (!adj[s.station]) adj[s.station] = new Set();
+                if (inDegree[s.station] === undefined) inDegree[s.station] = 0;
             });
         });
+
+        // Build directed edges (A precedes B)
+        trainsList.forEach(t => {
+            for (let i = 0; i < t.stops.length - 1; i++) {
+                let u = t.stops[i].station;
+                let v = t.stops[i+1].station;
+                if (!adj[u].has(v)) {
+                    adj[u].add(v);
+                    inDegree[v] = (inDegree[v] || 0) + 1;
+                }
+            }
+        });
+
+        // Kahn's Algorithm
+        let queue = [];
+        let master = [];
+
+        stations.forEach(st => {
+            if (inDegree[st] === 0) queue.push(st);
+        });
+
+        while (queue.length > 0) {
+            let u = queue.shift();
+            master.push(u);
+            adj[u].forEach(v => {
+                inDegree[v]--;
+                if (inDegree[v] === 0) queue.push(v);
+            });
+        }
+
+        // Failsafe for cycles (Should not happen in schedules)
+        stations.forEach(st => {
+            if (!master.includes(st)) master.push(st);
+        });
+
         return master;
     }
 
@@ -163,7 +190,7 @@ window.renderTimetableGrid = function(dirKey) {
 
     let usedNotes = new Set();
     
-    // RESTORED STABLE CHRONOLOGICAL SORTING
+    // Stable Shared-Station Time Sorting
     trains.sort((a, b) => {
         let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (sharedSt) {
@@ -193,7 +220,7 @@ window.renderTimetableGrid = function(dirKey) {
     });
     html += `</tr></thead><tbody>`;
 
-    // AUX ROW: Ze směru
+    // Ze směru
     let hasOrigins = trains.some(t => t.origin);
     if (hasOrigins) {
         html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
@@ -213,7 +240,6 @@ window.renderTimetableGrid = function(dirKey) {
         trains.forEach(t => {
             let s_list = t.stops.filter(s => s.station === station);
             
-            // SKIP (|) BOUNDS CHECK
             let firstStopIdx = masterStations.indexOf(t.stops[0].station);
             let lastStopIdx = masterStations.indexOf(t.stops[t.stops.length - 1].station);
             let currentStIdx = masterStations.indexOf(station);
@@ -247,7 +273,7 @@ window.renderTimetableGrid = function(dirKey) {
         html += `</tr>`;
     });
 
-    // AUX ROW: Směřuje do
+    // Směřuje do
     let hasContinuations = trains.some(t => t.continuation);
     if (hasContinuations) {
         html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
