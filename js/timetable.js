@@ -1,0 +1,255 @@
+window.openTimetable = function(lineName) {
+    const ttModal = document.getElementById('tt-modal');
+    const title = document.getElementById('tt-title');
+    const controls = document.getElementById('tt-controls');
+    const content = document.getElementById('tt-content');
+    const footer = document.getElementById('tt-footer');
+    
+    // Attempt to close map popups if map exists
+    if (typeof map !== 'undefined') map.closePopup();
+
+    const lineColor = window.lineColorsDict[lineName] || '#ffffff';
+    const textColor = getContrastColor(lineColor);
+    title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${textColor}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
+
+    // 1. Gather all trains belonging to this line
+    let lineTrains = new Set();
+    let validStationsForLine = new Set();
+
+    window.routesData.forEach(r => {
+        if (r.lineName === lineName || r.changesTo === lineName) {
+            if (r.trainNames) r.trainNames.forEach(t => lineTrains.add(t));
+        }
+        
+        // Map the strictly valid stations for THIS line segment
+        if (r.lineName === lineName && !r.changeAt) {
+            r.waypoints.forEach(w => validStationsForLine.add(w));
+        } else if (r.changeAt) {
+            let changeIdx = r.waypoints.indexOf(r.changeAt);
+            if (r.lineName === lineName) {
+                for(let i=0; i<=changeIdx; i++) validStationsForLine.add(r.waypoints[i]);
+            }
+            if (r.changesTo === lineName) {
+                for(let i=changeIdx; i<r.waypoints.length; i++) validStationsForLine.add(r.waypoints[i]);
+            }
+        }
+    });
+
+    // 2. Extract and Slice Trains
+    let extractedTrains = [];
+    for (let pdf in window.timetablesData) {
+        let tDict = window.timetablesData[pdf].trains;
+        if(!tDict) continue;
+        
+        lineTrains.forEach(tId => {
+            if (tDict[tId]) {
+                let tClone = JSON.parse(JSON.stringify(tDict[tId]));
+                tClone.id = tId;
+
+                // NEW LOGIC: Only retain stops that belong to this line
+                let firstValidIdx = tClone.stops.findIndex(s => validStationsForLine.has(s.station));
+                let lastValidIdx = tClone.stops.findLastIndex(s => validStationsForLine.has(s.station));
+
+                if (firstValidIdx !== -1) {
+                    // Record Origin (if train comes from out of bounds)
+                    if (firstValidIdx > 0) {
+                        let origin = tClone.stops[0];
+                        let badge = getBadgeForTrainAtStation(tId, origin.station);
+                        tClone.origin = {
+                            station: origin.station,
+                            time: origin.departure || origin.time || origin.arrival,
+                            lineBadge: badge ? badge.line : '',
+                            badgeColor: badge ? badge.color : '#94a3b8'
+                        };
+                    }
+
+                    // Record Destination (if train goes out of bounds)
+                    if (lastValidIdx < tClone.stops.length - 1) {
+                        let dest = tClone.stops[tClone.stops.length - 1];
+                        let badge = getBadgeForTrainAtStation(tId, dest.station);
+                        tClone.continuation = {
+                            station: dest.station,
+                            time: dest.arrival || dest.time || dest.departure,
+                            lineBadge: badge ? badge.line : '',
+                            badgeColor: badge ? badge.color : '#94a3b8'
+                        };
+                    }
+
+                    // Trim the actual array to match the current line
+                    tClone.stops = tClone.stops.slice(firstValidIdx, lastValidIdx + 1);
+                    
+                    if (!extractedTrains.some(et => et.id === tId)) extractedTrains.push(tClone);
+                }
+            }
+        });
+    }
+
+    if (extractedTrains.length === 0) {
+        content.innerHTML = `<div style="padding:24px; text-align:center; color:#94a3b8;">Pro tuto linku zatím nejsou k dispozici data.</div>`;
+        controls.innerHTML = ''; footer.innerHTML = '';
+        ttModal.style.display = 'flex';
+        return;
+    }
+
+    // 3. Group by Direction
+    let dir1Trains = []; let dir2Trains = [];
+    let refTrain = extractedTrains.reduce((prev, current) => (prev.stops.length > current.stops.length) ? prev : current, extractedTrains[0]);
+    let refStops = refTrain.stops.map(s => s.station);
+
+    extractedTrains.forEach(t => {
+        let tStops = t.stops.map(s => s.station);
+        let shared = tStops.filter(s => refStops.includes(s));
+        if (shared.length >= 2) {
+            let refIdx1 = refStops.indexOf(shared[0]), refIdx2 = refStops.indexOf(shared[shared.length - 1]);
+            let tIdx1 = tStops.indexOf(shared[0]), tIdx2 = tStops.indexOf(shared[shared.length - 1]);
+            if ((refIdx1 < refIdx2) === (tIdx1 < tIdx2)) dir1Trains.push(t); else dir2Trains.push(t);
+        } else dir1Trains.push(t); 
+    });
+
+    function buildMaster(trainsList) {
+        let master = [];
+        let sorted = [...trainsList].sort((a,b) => b.stops.length - a.stops.length);
+        sorted.forEach(t => {
+            let lastIndex = -1;
+            let uniqueStops = [...new Set(t.stops.map(s => s.station))];
+            uniqueStops.forEach(st => {
+                let idx = master.indexOf(st);
+                if (idx === -1) { master.splice(lastIndex + 1, 0, st); lastIndex++; } 
+                else { lastIndex = idx; }
+            });
+        });
+        return master;
+    }
+
+    let master1 = buildMaster(dir1Trains);
+    let master2 = buildMaster(dir2Trains);
+
+    let directions = {};
+    if (master1.length > 0) directions[`Směr ${master1[master1.length-1]}`] = { masterStations: master1, trains: dir1Trains };
+    if (master2.length > 0) directions[`Směr ${master2[master2.length-1]}`] = { masterStations: master2, trains: dir2Trains };
+
+    let dirKeys = Object.keys(directions);
+    controls.innerHTML = dirKeys.map((key, idx) => `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="renderTimetableGrid('${key}')">${key}</button>`).join('');
+
+    window.currentTimetableData = directions;
+    renderTimetableGrid(dirKeys[0]);
+    ttModal.style.display = 'flex';
+};
+
+window.renderTimetableGrid = function(dirKey) {
+    document.querySelectorAll('.dir-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if(btn.innerText === dirKey) btn.classList.add('active');
+    });
+
+    const data = window.currentTimetableData[dirKey];
+    const trains = data.trains;
+    const masterStations = data.masterStations;
+    const content = document.getElementById('tt-content');
+    const footer = document.getElementById('tt-footer');
+
+    let usedNotes = new Set();
+    
+    // --- RESTORED CHRONOLOGICAL SORTING ---
+    trains.sort((a, b) => {
+        let sharedSt = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
+        if (sharedSt) {
+            let sA = a.stops.find(s => s.station === sharedSt);
+            let sB = b.stops.find(s => s.station === sharedSt);
+            return timeToMins(sA.departure || sA.time || sA.arrival) - timeToMins(sB.departure || sB.time || sB.arrival);
+        }
+        return timeToMins(a.stops[0].departure || a.stops[0].time || a.stops[0].arrival) - timeToMins(b.stops[0].departure || b.stops[0].time || b.stops[0].arrival);
+    });
+
+    let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
+    trains.forEach(t => { html += `<th class="sticky-top-1">${t.id}</th>`; });
+    html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
+    
+    trains.forEach(t => {
+        let notesHtml = [];
+        (t.notes || []).forEach((n, idx) => {
+            let validity = (t.notes_validity && t.notes_validity[idx]) ? t.notes_validity[idx] : null;
+            usedNotes.add(n);
+            if (validity && validity.toLowerCase() !== "all") {
+                notesHtml.push(`<span class="tt-note-badge clickable-note" onclick="alert('Poznámka ${n}\\nPlatí pouze pro úsek:\\n${validity}')" title="Klikněte pro zobrazení úseku">${n}*</span>`);
+            } else {
+                notesHtml.push(`<span class="tt-note-badge">${n}</span>`);
+            }
+        });
+        html += `<th class="sticky-top-2">${notesHtml.join(' ')}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    // AUX ROW (Ze Stanice)
+    let hasOrigins = trains.some(t => t.origin);
+    if (hasOrigins) {
+        html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
+        trains.forEach(t => {
+            if (t.origin) {
+                let fg = getContrastColor(t.origin.badgeColor);
+                let bHtml = t.origin.lineBadge ? `<span class="tt-sm-badge" style="background:${t.origin.badgeColor}; color:${fg};">${t.origin.lineBadge}</span>` : '';
+                html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.origin.time}</span><span>${t.origin.station}</span></div></td>`;
+            } else html += `<td></td>`;
+        });
+        html += `</tr>`;
+    }
+
+    // MAIN STATIONS
+    masterStations.forEach(station => {
+        html += `<tr><td class="sticky-col">${station}</td>`;
+        trains.forEach(t => {
+            let s_list = t.stops.filter(s => s.station === station);
+            if (s_list.length > 0) {
+                let reqIcon = s_list.some(s => s.request_stop) ? `<span class="tt-req">×</span>` : '';
+                if (s_list.length === 1 && !s_list[0].arrival && !s_list[0].departure) {
+                    html += `<td>${reqIcon}<span class="tt-time">${s_list[0].time || ''}</span></td>`;
+                } else {
+                    let arrTime = s_list[0].arrival || s_list[0].time;
+                    let depTime = s_list[s_list.length - 1].departure || s_list[s_list.length - 1].time;
+                    if (arrTime === depTime) {
+                        html += `<td>${reqIcon}<span class="tt-time">${arrTime}</span></td>`;
+                    } else {
+                        html += `<td>
+                            <div class="arr-dep-box">
+                                <div class="arr-time">${reqIcon}<span class="time-lbl">př</span><span class="tt-time">${arrTime}</span></div>
+                                <div class="dep-time"><span class="time-lbl">od</span><span class="tt-time">${depTime}</span></div>
+                            </div>
+                        </td>`;
+                    }
+                }
+            } else {
+                html += `<td><span class="tt-pass">|</span></td>`;
+            }
+        });
+        html += `</tr>`;
+    });
+
+    // AUX ROW (Směřuje do)
+    let hasContinuations = trains.some(t => t.continuation);
+    if (hasContinuations) {
+        html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
+        trains.forEach(t => {
+            if (t.continuation) {
+                let fg = getContrastColor(t.continuation.badgeColor);
+                let bHtml = t.continuation.lineBadge ? `<span class="tt-sm-badge" style="background:${t.continuation.badgeColor}; color:${fg};">${t.continuation.lineBadge}</span>` : '';
+                html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.continuation.time}</span><span>${t.continuation.station}</span></div></td>`;
+            } else html += `<td></td>`;
+        });
+        html += `</tr>`;
+    }
+    
+    html += `</tbody></table>`;
+    content.innerHTML = html;
+
+    let footerHtml = `<div class="legend-grid">`;
+    usedNotes.forEach(note => {
+        let meaning = window.notesDict[note] || "Neznámá poznámka";
+        footerHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${meaning}</div>`;
+    });
+    footerHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:16px;">×</span> Zastávka na znamení</div></div>`;
+    footer.innerHTML = footerHtml;
+};
+
+window.closeTimetable = function() {
+    document.getElementById('tt-modal').style.display = 'none';
+};
