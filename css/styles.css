@@ -47,24 +47,19 @@ body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color
 
 .timetable-content { flex: 1; overflow: auto; padding: 0; position: relative; background: #0f172a; }
 
-/* --- BULLETPROOF STICKY TABLE --- */
+/* --- TABLE --- */
 table.modern-tt { width: 100%; border-collapse: separate; border-spacing: 0; text-align: center; font-size: 13px; color: #e2e8f0; }
 table.modern-tt th, table.modern-tt td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); background-color: #0f172a; background-clip: padding-box; }
 
-/* Top Rows */
 .sticky-top-1 { position: sticky; top: 0; height: 44px; z-index: 20; background-color: #1e293b !important; color: #cbd5e1; font-weight: 600; }
 .sticky-top-2 { position: sticky; top: 44px; height: 32px; z-index: 20; background-color: #0f172a !important; color: #94a3b8; font-size: 11px; border-bottom: 2px solid #334155; }
-
-/* Left Column */
 .sticky-col { position: sticky; left: 0; z-index: 10; background-color: #1e293b !important; border-right: 2px solid #334155 !important; text-align: left; font-weight: 600; min-width: 180px; max-width: 250px; white-space: normal; padding-left: 16px !important; }
 
-/* Corners (Highest Z-Index) */
 th.sticky-col.sticky-top-1 { z-index: 30; }
 th.sticky-col.sticky-top-2 { z-index: 30; }
 
-/* HOVER STATES - Forced Solid Colors to prevent bleed */
 table.modern-tt tbody tr:hover td { background-color: #1a2436 !important; }
-table.modern-tt tbody tr:hover td.sticky-col { background-color: #273549 !important; z-index: 10; } /* Keep z-index applied on hover */
+table.modern-tt tbody tr:hover td.sticky-col { background-color: #273549 !important; z-index: 10; } 
 
 /* Auxiliary Rows */
 table.modern-tt tbody tr.aux-row td { background-color: #141b2d !important; border-bottom: 1px dashed rgba(255,255,255,0.1); }
@@ -72,7 +67,6 @@ table.modern-tt tbody tr.aux-row td.sticky-col { background-color: #192336 !impo
 table.modern-tt tbody tr.aux-row:hover td { background-color: #1c263b !important; }
 table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45 !important; }
 
-/* Cell Contents */
 .aux-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #94a3b8; line-height: 1.2; }
 .tt-sm-badge { display: inline-flex; align-items: center; justify-content: center; padding: 1px 4px; border-radius: 3px; font-weight: 700; font-size: 9px; line-height: 1.1; margin-bottom: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
 .tt-note-badge { display: inline-block; margin: 0 3px; }
