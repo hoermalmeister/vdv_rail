@@ -49,8 +49,8 @@
   {"lineName": "J1", "waypoints": ["Jihlava", "Okříšky", "Třebíč", "Studenec", "Náměšť nad Oslavou", "Zastávka u Brna", "Brno"], "color": "#42D4F4", "changeAt": "Třebíč", "changesTo": "R54", "changeColor": "#9A6324", "trainNames": ["Sp 1926", "Sp 1928", "Sp 1925", "Sp 1927"]},
   {"lineName": "S81", "waypoints": ["Havlíčkův Brod", "Dobronín", "Jihlava", "Okříšky", "Moravské Budějovice", "Znojmo"], "color": "#F032E6", "trainNames": ["Sp 1934", "Sp 1935"]},
   {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice"], "color": "#000075", "trainNames": ["Os 14931", "Os 14933", "Os 14935", "Os 14937", "Os 14939", "Os 14941", "Os 14943", "Os 14945", "Os 14947", "Os 14930", "Os 14932", "Os 14934", "Os 14936", "Os 14938", "Os 14940", "Os 14942", "Os 14944", "Os 14948"]},
-  {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou"], "color": "#000075", "trainNames": ["Os 14901", "Os 14900"]},
-  {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8741", "Os 8743", "Os 8745", "Os 8747", "Os 8749", "Os 8751", "Os 8753", "Os 8755", "Os 8742", "Os 8744", "Os 8746", "Os 8748", "Os 8750", "Os 8752", "Os 8754"]},
-  {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice"], "color": "#000075", "trainNames": ["Os 14946"]},
-  {"lineName": "S31", "waypoints": ["Nedvědice", "Bystřice", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8740"]}
+  {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice nad Pernštejnem", "Nové Město na Moravě", "Žďár nad Sázavou"], "color": "#000075", "trainNames": ["Os 14901", "Os 14900"]},
+  {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice nad Pernštejnem", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8741", "Os 8743", "Os 8745", "Os 8747", "Os 8749", "Os 8751", "Os 8753", "Os 8755", "Os 8742", "Os 8744", "Os 8746", "Os 8748", "Os 8750", "Os 8752", "Os 8754"]},
+  {"lineName": "S31", "waypoints": ["Tišnov", "Nedvědice", "Bystřice nad Pernštejnem"], "color": "#000075", "trainNames": ["Os 14946"]},
+  {"lineName": "S31", "waypoints": ["Nedvědice", "Bystřice nad Pernštejnem", "Nové Město na Moravě", "Žďár nad Sázavou", "Havlíčkův Brod"], "color": "#000075", "trainNames": ["Os 8740"]}
 ]
