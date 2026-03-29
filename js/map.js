@@ -16,7 +16,7 @@ function initializeMap() {
         }
         const badgeTextColor = window.getContrastColor(segData.color);
         
-        // FIXED: Only disable clicking on hover. Make it clickable on popup.
+        // Ensure the badge is clickable ONLY inside the click popups/modals
         const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
         const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
         
@@ -26,9 +26,10 @@ function initializeMap() {
                 <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>${destinationsHtml}</div>`;
     }
 
-    window.openMobileModal = function(nodeA, nodeB, linesOnSegment) {
-        const modal = document.getElementById('mobile-modal');
-        const content = document.getElementById('mobile-modal-content');
+    // --- MOBILE SPECIFIC: Segment Modals ---
+    window.openSegmentModal = function(nodeA, nodeB, linesOnSegment) {
+        const modal = document.getElementById('segment-modal');
+        const content = document.getElementById('segment-modal-content');
 
         let buttonsHtml = linesOnSegment.map((seg, idx) => {
             const textColor = window.getContrastColor(seg.color);
@@ -39,7 +40,7 @@ function initializeMap() {
                 const endB = data.start < data.end ? data.end : data.start;
                 endpointsText = `${endA} ↔ ${endB}`;
             }
-            return `<button class="modal-line-btn" onclick="showMobileDetails(${idx})">
+            return `<button class="modal-line-btn" onclick="showSegmentDetails(${idx})">
                         <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
                         <span class="btn-text" style="font-weight: 600;">${endpointsText}</span>
                     </button>`;
@@ -58,9 +59,9 @@ function initializeMap() {
         modal.style.display = 'flex';
     };
 
-    window.showMobileDetails = function(idx, isSingle = false) {
+    window.showSegmentDetails = function(idx, isSingle = false) {
         const segData = window.currentSegmentLinesData[idx];
-        const content = document.getElementById('mobile-modal-content');
+        const content = document.getElementById('segment-modal-content');
         
         const detailedHtml = window.generateLineTooltipHtml(segData, true);
 
@@ -71,17 +72,22 @@ function initializeMap() {
                           </div>`;
         } else {
             headerHtml = `<div class="modal-header">
-                            <button onclick="openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="modal-back-btn">← Zpět</button>
+                            <button onclick="openSegmentModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="modal-back-btn">← Zpět</button>
                             <button onclick="closeSegmentModal()" class="close-modal-btn">&times;</button>
                           </div>`;
         }
 
-        content.innerHTML = headerHtml + detailedHtml;
-        document.getElementById('mobile-modal').style.display = 'flex';
+        let ttButton = `
+            <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
+                <button onclick="window.openTimetable('${segData.lineName}'); window.closeSegmentModal();" style="background: ${segData.color}; color: ${window.getContrastColor(segData.color)}; border: none; padding: 10px; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity 0.2s;">Otevřít jízdní řád linky</button>
+            </div>`;
+
+        content.innerHTML = headerHtml + detailedHtml + ttButton;
+        document.getElementById('segment-modal').style.display = 'flex';
     };
 
     window.closeSegmentModal = function() {
-        document.getElementById('mobile-modal').style.display = 'none';
+        document.getElementById('segment-modal').style.display = 'none';
     };
 
     window.routesData.forEach(route => {
@@ -162,6 +168,7 @@ function initializeMap() {
             const hoverHtml = window.generateLineTooltipHtml(segData, false);
             const clickHtml = window.generateLineTooltipHtml(segData, true); 
 
+            // UX SPLIT: Desktop gets popups. Mobile gets the Menu.
             if (!window.isMobile) {
                 interactionLine.bindTooltip(hoverHtml, { sticky: true });
                 interactionLine.bindPopup(clickHtml, { className: 'custom-popup' });
@@ -169,12 +176,13 @@ function initializeMap() {
                 interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
                 interactionLine.on('popupclose', function() { this.bindTooltip(hoverHtml, { sticky: true }); });
             } else {
-                interactionLine.on('click', function() {
+                interactionLine.on('click', function(e) {
+                    L.DomEvent.stopPropagation(e);
                     if (linesOnSegment.length === 1) {
                         window.currentSegmentLinesData = linesOnSegment;
-                        window.showMobileDetails(0, true);
+                        window.showSegmentDetails(0, true);
                     } else {
-                        window.openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                        window.openSegmentModal(segData.nodeA, segData.nodeB, linesOnSegment);
                     }
                 });
             }
@@ -192,7 +200,8 @@ function initializeMap() {
             const chunk = passingLines.slice(i, i + 3);
             const badgesHtml = chunk.map(line => {
                 const bgColor = window.lineColorsDict[line] || '#cccccc';
-                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px;" onclick="window.openTimetable('${line}')">${line}</span>`;
+                // Always clickable in the station popup
+                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px; cursor: pointer;" onclick="window.openTimetable('${line}')">${line}</span>`;
             }).join('');
             rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
         }
@@ -223,7 +232,7 @@ function initializeMap() {
             const endA = data.start < data.end ? data.start : data.end;
             const endB = data.start < data.end ? data.end : data.start;
             html += `<div class="legend-row">
-                        <span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px;" onclick="window.openTimetable('${line}')">${line}</span>
+                        <span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px; cursor: pointer;" onclick="window.openTimetable('${line}')">${line}</span>
                         <span class="legend-stops">${endA} ↔ ${endB}</span>
                      </div>`;
         });
@@ -233,14 +242,12 @@ function initializeMap() {
         setTimeout(() => {
             const toggleBtn = div.querySelector('#legend-toggle');
             const contentDiv = div.querySelector('#legend-content');
-            
             L.DomEvent.on(toggleBtn, 'click', function(e) {
                 L.DomEvent.stopPropagation(e);
                 toggleBtn.classList.toggle('collapsed');
                 contentDiv.classList.toggle('collapsed');
             });
         }, 0);
-        
         return div;
     };
     legend.addTo(map);
