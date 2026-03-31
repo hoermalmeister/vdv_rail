@@ -1,3 +1,104 @@
+// --- NEW FEATURE: Individual Train Timetable ---
+window.openSingleTrain = function(trainId) {
+    const ttModal = document.getElementById('tt-modal');
+    const title = document.getElementById('tt-title');
+    const controls = document.getElementById('tt-controls');
+    const content = document.getElementById('tt-content');
+    const footer = document.getElementById('tt-footer');
+    
+    // Close map popups and mobile segment menus to clear the view
+    if (typeof window.map !== 'undefined') window.map.closePopup();
+    if (document.getElementById('mobile-modal')) document.getElementById('mobile-modal').style.display = 'none';
+
+    let foundTrain = null;
+    let vehicleType = "Neznámý";
+
+    // Search the timetables for this specific train and extract vehicle type from the filename
+    for (let pdf in window.timetablesData) {
+        if (window.timetablesData[pdf].trains && window.timetablesData[pdf].trains[trainId]) {
+            foundTrain = JSON.parse(JSON.stringify(window.timetablesData[pdf].trains[trainId]));
+            
+            const types = ["BEMU", "EMU130", "EMU140", "DMU120", "DMU70"];
+            for (let type of types) {
+                if (pdf.includes(type)) {
+                    vehicleType = type;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    if (!foundTrain) {
+        alert("Spojení nebylo nalezeno.");
+        return;
+    }
+
+    // Determine the primary line colors to use in the header
+    let lineName = "";
+    let lineColor = "#94a3b8";
+    for (let r of window.routesData) {
+        if (r.trainNames && r.trainNames.includes(trainId)) {
+            lineName = r.lineName;
+            lineColor = window.lineColorsDict[lineName] || r.color;
+            break;
+        }
+    }
+
+    let badgeHtml = lineName ? `<span class="line-badge" style="background-color:${lineColor}; color:${window.getContrastColor(lineColor)}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: default;">${lineName}</span>` : '';
+    let vehicleHtml = vehicleType !== "Neznámý" ? `<span style="font-size: 13px; margin-left: auto; color: #38bdf8; font-weight: 600; padding: 4px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 4px;">Vozidlo: ${vehicleType}</span>` : '';
+    
+    // Setup Header & Clear Controls
+    title.innerHTML = `${badgeHtml} Vlak ${trainId} ${vehicleHtml}`;
+    controls.innerHTML = ''; 
+
+    // Render Vertical Timetable
+    let html = `<table class="modern-tt" style="width: 100%; text-align: left;">
+        <thead>
+            <tr>
+                <th class="sticky-col sticky-top-1">Stanice</th>
+                <th class="sticky-top-1" style="text-align: center;">Příjezd</th>
+                <th class="sticky-top-1" style="text-align: center;">Odjezd</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    foundTrain.stops.forEach((s, idx) => {
+        let req = s.request_stop ? `<span class="tt-req">×</span>` : '';
+        let arr = s.arrival || s.time || '';
+        let dep = s.departure || s.time || '';
+        
+        // Blank out arrivals for the very first station, and departures for the very last station
+        if (idx === 0) arr = ''; 
+        if (idx === foundTrain.stops.length - 1) dep = ''; 
+
+        let arrHtml = arr ? `${req}<span class="tt-time">${arr}</span>` : '<span style="color:#475569;">-</span>';
+        let depHtml = dep ? `${req}<span class="tt-time">${dep}</span>` : '<span style="color:#475569;">-</span>';
+
+        html += `<tr>
+            <td class="sticky-col">${s.station}</td>
+            <td style="text-align: center;">${arrHtml}</td>
+            <td style="text-align: center;">${depHtml}</td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    content.innerHTML = html;
+
+    // Render Footer with Notes
+    let fHtml = `<div class="legend-grid">`;
+    if (foundTrain.notes && foundTrain.notes.length > 0) {
+        foundTrain.notes.forEach(note => {
+            fHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${window.notesDict[note] || "Neznámá poznámka"}</div>`;
+        });
+    }
+    fHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:16px;">×</span> Zastávka na znamení</div></div>`;
+    footer.innerHTML = fHtml;
+
+    ttModal.style.display = 'flex';
+};
+
+// --- EXISTING FEATURE: Full Line Timetable ---
 window.openTimetable = function(lineName) {
     const ttModal = document.getElementById('tt-modal');
     const title = document.getElementById('tt-title');
@@ -67,7 +168,7 @@ window.openTimetable = function(lineName) {
 
     if (extractedTrains.length === 0) {
         content.innerHTML = `<div style="padding:24px; text-align:center; color:#94a3b8;">Pro tuto linku zatím nejsou k dispozici data.</div>`;
-        controls.innerHTML = ''; document.getElementById('tt-footer').innerHTML = '';
+        controls.innerHTML = ''; footer.innerHTML = '';
         ttModal.style.display = 'flex';
         return;
     }
@@ -92,7 +193,6 @@ window.openTimetable = function(lineName) {
         
         if (sortedTrains.length === 0) return master;
         
-        // Backbone Strategy for complex lines (S14 fix)
         sortedTrains.forEach(t => {
             let lastMasterIdx = -1;
             t.stops.forEach(s => {
