@@ -1,6 +1,5 @@
 // --- NEW FILE: js/transfers.js ---
 
-// Determines if a station is a junction by checking if >1 distinct lines pass through it
 window.isJunctionStation = function(station) {
     let lines = new Set();
     for (let r of window.routesData) {
@@ -19,7 +18,6 @@ window.isJunctionStation = function(station) {
     return lines.size > 1;
 };
 
-// Helper function to figure out exactly which line a train belongs to at a specific station
 window.getTrainLineAtStation = function(trainId, station) {
     let matchedRoute = null;
     for (let r of window.routesData) {
@@ -33,7 +31,6 @@ window.getTrainLineAtStation = function(trainId, station) {
     let lineName = matchedRoute.lineName;
     let color = window.lineColorsDict[lineName] || matchedRoute.color || "#94a3b8";
 
-    // Handle split lines based on geographic direction
     if (matchedRoute.changeAt && matchedRoute.changesTo) {
         let trainData = null;
         for (let pdf in window.timetablesData) {
@@ -73,9 +70,7 @@ window.getTrainLineAtStation = function(trainId, station) {
     return { lineName, color };
 };
 
-// Core transfer logic
 window.findTransfers = function(station, arrivalTime, currentTrainId) {
-    // FIXED: Immediately abort if the station is not a recognized junction in routes.json
     if (!window.isJunctionStation(station)) return [];
 
     if (!arrivalTime) return [];
@@ -85,6 +80,18 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
     let currentLineObj = window.getTrainLineAtStation(currentTrainId, station);
     let currentLineName = currentLineObj ? currentLineObj.lineName : null;
 
+    // Fetch the current train's notes and normalize them
+    let currentTrainObj = null;
+    for (let pdf in window.timetablesData) {
+        if (window.timetablesData[pdf].trains && window.timetablesData[pdf].trains[currentTrainId]) {
+            currentTrainObj = window.timetablesData[pdf].trains[currentTrainId];
+            break;
+        }
+    }
+    let cNotes = (currentTrainObj && currentTrainObj.notes) ? currentTrainObj.notes : [];
+    let opCNotes = cNotes.filter(n => window.transferLogicData[n]); // Keep only notes that exist in the logic JSON
+    if (opCNotes.length === 0) opCNotes = ["no note"];
+
     let transfers = [];
 
     for (let pdf in window.timetablesData) {
@@ -92,12 +99,12 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
         if (!trains) continue;
 
         for (let tId in trains) {
-            if (tId === currentTrainId) continue; // Skip itself
+            if (tId === currentTrainId) continue; 
             let t = trains[tId];
 
             let stIdx = t.stops.findIndex(s => s.station === station);
-            if (stIdx === -1) continue; // Doesn't stop here
-            if (stIdx === t.stops.length - 1) continue; // Train terminates here (can't transfer to it)
+            if (stIdx === -1) continue; 
+            if (stIdx === t.stops.length - 1) continue; 
 
             let depTime = t.stops[stIdx].departure || t.stops[stIdx].time;
             if (!depTime) continue;
@@ -105,17 +112,33 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
             let depMins = window.timeToMins(depTime);
             if (depMins === 99999) continue;
 
-            // Calculate difference, automatically handling midnight wrap-arounds
             let diff = (depMins - arrMins + 1440) % 1440;
             
-            // 5 to 20 minute window
             if (diff >= 5 && diff <= 20) {
                 let transLineObj = window.getTrainLineAtStation(tId, station);
                 let transLineName = transLineObj ? transLineObj.lineName : null;
                 let transColor = transLineObj ? transLineObj.color : "#94a3b8";
 
-                // Exclude trains on the exact same line
                 if (!transLineName || transLineName === currentLineName) continue;
+
+                // FIXED: Verify Operational Days Compatibility using your JSON matrix
+                let tNotes = t.notes || [];
+                let opTNotes = tNotes.filter(n => window.transferLogicData[n]);
+                if (opTNotes.length === 0) opTNotes = ["no note"];
+
+                let isCompatible = false;
+                for (let cN of opCNotes) {
+                    let allowed = window.transferLogicData[cN] || [];
+                    for (let tN of opTNotes) {
+                        if (allowed.includes(tN)) {
+                            isCompatible = true;
+                            break;
+                        }
+                    }
+                    if (isCompatible) break;
+                }
+
+                if (!isCompatible) continue; // Skip if they run on non-overlapping days
 
                 let destStation = t.stops[t.stops.length - 1].station;
 
@@ -125,16 +148,15 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
                     color: transColor,
                     depTime: depTime,
                     destStation: destStation,
-                    diff: diff
+                    diff: diff,
+                    notes: t.notes || [] // Pass notes to UI for display
                 });
             }
         }
     }
     
-    // Sort by soonest departure
     transfers.sort((a, b) => a.diff - b.diff);
 
-    // Deduplicate in case a train ID exists across multiple JSON structures
     let uniqueTransfers = [];
     let seen = new Set();
     for (let tr of transfers) {
