@@ -34,18 +34,30 @@ window.openSingleTrain = function(trainId) {
         return;
     }
 
-    // Determine the primary line colors to use in the header
-    let lineName = "";
-    let lineColor = "#94a3b8";
+    // Determine the primary line colors to use in the header and detect line changes
+    let matchedRoute = null;
     for (let r of window.routesData) {
         if (r.trainNames && r.trainNames.includes(trainId)) {
-            lineName = r.lineName;
-            lineColor = window.lineColorsDict[lineName] || r.color;
+            matchedRoute = r;
             break;
         }
     }
 
-    let badgeHtml = lineName ? `<span class="line-badge" style="background-color:${lineColor}; color:${window.getContrastColor(lineColor)}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: default;">${lineName}</span>` : '';
+    let badgeHtml = "";
+    if (matchedRoute) {
+        let color1 = window.lineColorsDict[matchedRoute.lineName] || matchedRoute.color || "#94a3b8";
+        let text1 = window.getContrastColor(color1);
+        badgeHtml += `<span class="line-badge" style="background-color:${color1}; color:${text1}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${matchedRoute.lineName}')" title="Zobrazit jízdní řád linky ${matchedRoute.lineName}">${matchedRoute.lineName}</span>`;
+
+        // If the train changes lines mid-journey, show the second badge as well
+        if (matchedRoute.changeAt && matchedRoute.changesTo) {
+            let color2 = window.lineColorsDict[matchedRoute.changesTo] || matchedRoute.changeColor || "#94a3b8";
+            let text2 = window.getContrastColor(color2);
+            badgeHtml += `<span style="color: #94a3b8; margin-right: 8px; font-size: 14px;">➔</span>`;
+            badgeHtml += `<span class="line-badge" style="background-color:${color2}; color:${text2}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${matchedRoute.changesTo}')" title="Zobrazit jízdní řád linky ${matchedRoute.changesTo}">${matchedRoute.changesTo}</span>`;
+        }
+    }
+
     let vehicleHtml = vehicleType !== "Neznámý" ? `<span style="font-size: 13px; margin-left: auto; color: #38bdf8; font-weight: 600; padding: 4px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 4px;">Vozidlo: ${vehicleType}</span>` : '';
     
     // Setup Header & Clear Controls
@@ -63,23 +75,21 @@ window.openSingleTrain = function(trainId) {
         </thead>
         <tbody>`;
 
-    // FIXED: Merge consecutive identical stations into Arrival / Departure
+    // Merge consecutive identical stations into Arrival / Departure
     let mergedStops = [];
     for (let i = 0; i < foundTrain.stops.length; i++) {
         let currentStop = foundTrain.stops[i];
         let nextStop = foundTrain.stops[i + 1];
 
         if (nextStop && currentStop.station === nextStop.station) {
-            // It's a wait at a station, merge the two rows
             mergedStops.push({
                 station: currentStop.station,
                 arrival: currentStop.arrival || currentStop.time || '',
                 departure: nextStop.departure || nextStop.time || '',
                 request_stop: currentStop.request_stop || nextStop.request_stop
             });
-            i++; // Skip the next stop since we merged it
+            i++; 
         } else {
-            // Normal single row stop
             mergedStops.push({
                 station: currentStop.station,
                 arrival: currentStop.arrival || currentStop.time || '',
@@ -94,7 +104,6 @@ window.openSingleTrain = function(trainId) {
         let arr = s.arrival;
         let dep = s.departure;
         
-        // Blank out arrivals for the very first station, and departures for the very last station
         if (idx === 0) arr = ''; 
         if (idx === mergedStops.length - 1) dep = ''; 
 
@@ -106,6 +115,18 @@ window.openSingleTrain = function(trainId) {
             <td style="text-align: center;">${arrHtml}</td>
             <td style="text-align: center;">${depHtml}</td>
         </tr>`;
+
+        // Inject a subtle informative row right after the station where the train changes lines
+        if (matchedRoute && matchedRoute.changeAt && matchedRoute.changesTo && s.station === matchedRoute.changeAt && idx < mergedStops.length - 1) {
+            let color2 = window.lineColorsDict[matchedRoute.changesTo] || matchedRoute.changeColor || "#94a3b8";
+            let text2 = window.getContrastColor(color2);
+            html += `<tr class="aux-row">
+                <td colspan="3" style="text-align: center; padding: 6px;">
+                    <span style="font-size: 11px; color: #94a3b8;">Vlak dále pokračuje jako linka</span> 
+                    <span class="line-badge" style="background-color:${color2}; color:${text2}; cursor: pointer; margin-left: 6px;" onclick="window.openTimetable('${matchedRoute.changesTo}')" title="Zobrazit jízdní řád linky ${matchedRoute.changesTo}">${matchedRoute.changesTo}</span>
+                </td>
+            </tr>`;
+        }
     });
 
     html += `</tbody></table>`;
@@ -283,8 +304,7 @@ window.renderTimetableGrid = function(dirKey) {
     });
 
     let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
-    // FIXED: Wrap train IDs in spans with onclick to open the single train view seamlessly
-    trains.forEach(t => html += `<th class="sticky-top-1"><span onclick="window.openSingleTrain('${t.id}'); event.stopPropagation();" style="cursor: pointer;">${t.id}</span></th>`);
+    trains.forEach(t => html += `<th class="sticky-top-1"><span onclick="window.openSingleTrain('${t.id}'); event.stopPropagation();" style="cursor: pointer;" title="Zobrazit detail vlaku">${t.id}</span></th>`);
     html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
     trains.forEach(t => {
         let nHtml = [];
@@ -302,7 +322,7 @@ window.renderTimetableGrid = function(dirKey) {
         html += `<tr class="aux-row"><td class="sticky-col">Ze směru</td>`;
         trains.forEach(t => {
             if (t.origin) {
-                let bHtml = `<span class="tt-sm-badge" style="background:${t.origin.badgeColor}; color:${window.getContrastColor(t.origin.badgeColor)};">${t.origin.lineBadge}</span>`;
+                let bHtml = `<span class="tt-sm-badge" style="background:${t.origin.badgeColor}; color:${window.getContrastColor(t.origin.badgeColor)}; cursor: pointer;" onclick="window.openTimetable('${t.origin.lineBadge}')" title="Zobrazit jízdní řád linky ${t.origin.lineBadge}">${t.origin.lineBadge}</span>`;
                 html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.origin.time}</span><span>${t.origin.station}</span></div></td>`;
             } else html += `<td></td>`;
         });
@@ -335,7 +355,7 @@ window.renderTimetableGrid = function(dirKey) {
         html += `<tr class="aux-row"><td class="sticky-col">Směřuje do</td>`;
         trains.forEach(t => {
             if (t.continuation) {
-                let bHtml = `<span class="tt-sm-badge" style="background:${t.continuation.badgeColor}; color:${window.getContrastColor(t.continuation.badgeColor)};">${t.continuation.lineBadge}</span>`;
+                let bHtml = `<span class="tt-sm-badge" style="background:${t.continuation.badgeColor}; color:${window.getContrastColor(t.continuation.badgeColor)}; cursor: pointer;" onclick="window.openTimetable('${t.continuation.lineBadge}')" title="Zobrazit jízdní řád linky ${t.continuation.lineBadge}">${t.continuation.lineBadge}</span>`;
                 html += `<td><div class="aux-cell">${bHtml} <span class="tt-time" style="font-size:11px;">${t.continuation.time}</span><span>${t.continuation.station}</span></div></td>`;
             } else html += `<td></td>`;
         });
