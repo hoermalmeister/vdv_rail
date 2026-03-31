@@ -1,5 +1,24 @@
 // --- NEW FILE: js/transfers.js ---
 
+// Determines if a station is a junction by checking if >1 distinct lines pass through it
+window.isJunctionStation = function(station) {
+    let lines = new Set();
+    for (let r of window.routesData) {
+        if (r.waypoints && r.waypoints.includes(station)) {
+            let cIdx = r.changeAt ? r.waypoints.indexOf(r.changeAt) : -1;
+            let stIdx = r.waypoints.indexOf(station);
+            
+            if (cIdx !== -1) {
+                if (stIdx <= cIdx) lines.add(r.lineName);
+                if (stIdx >= cIdx) lines.add(r.changesTo);
+            } else {
+                lines.add(r.lineName);
+            }
+        }
+    }
+    return lines.size > 1;
+};
+
 // Helper function to figure out exactly which line a train belongs to at a specific station
 window.getTrainLineAtStation = function(trainId, station) {
     let matchedRoute = null;
@@ -40,7 +59,7 @@ window.getTrainLineAtStation = function(trainId, station) {
             
             if (stIdx !== -1 && chIdx !== -1) {
                 let isFirstHalf = stIdx <= chIdx; 
-                if (stIdx === chIdx) isFirstHalf = false; // Departure from the change station operates as the 2nd line
+                if (stIdx === chIdx) isFirstHalf = false; 
 
                 if (isBackward) {
                     lineName = isFirstHalf ? matchedRoute.changesTo : matchedRoute.lineName;
@@ -56,6 +75,9 @@ window.getTrainLineAtStation = function(trainId, station) {
 
 // Core transfer logic
 window.findTransfers = function(station, arrivalTime, currentTrainId) {
+    // FIXED: Immediately abort if the station is not a recognized junction in routes.json
+    if (!window.isJunctionStation(station)) return [];
+
     if (!arrivalTime) return [];
     let arrMins = window.timeToMins(arrivalTime);
     if (arrMins === 99999) return [];
