@@ -137,8 +137,6 @@ window.openSingleTrain = function(trainId) {
             <td style="text-align: center;">${depHtml}</td>
         </tr>`;
 
-        // FIXED: Inject Transfer Logic right under the station
-        // Skips the first station (idx > 0)
         if (idx > 0 && arr) {
             if (typeof window.findTransfers === 'function') {
                 let transfers = window.findTransfers(s.station, arr, trainId);
@@ -146,11 +144,13 @@ window.openSingleTrain = function(trainId) {
                     let trHtml = `<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">`;
                     transfers.forEach(tr => {
                         let tColor = window.getContrastColor(tr.color);
+                        // FIXED: Added the clickable train name right beside the line badge
                         trHtml += `
                             <div style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
                                 <span class="line-badge" style="background-color:${tr.color}; color:${tColor}; cursor: pointer;" onclick="window.openTimetable('${tr.lineName}'); event.stopPropagation();" title="Zobrazit linku ${tr.lineName}">${tr.lineName}</span>
+                                <span style="font-size: 12px; font-weight: 700; color: #38bdf8; cursor: pointer; border-bottom: 1px dotted #38bdf8;" onclick="window.openSingleTrain('${tr.trainId}'); event.stopPropagation();" title="Zobrazit detail vlaku ${tr.trainId}">${tr.trainId}</span>
                                 <span style="font-family: monospace; font-size: 13px; color: #e2e8f0; font-weight: 600;">${tr.depTime}</span>
-                                <span style="font-size: 11px; color: #cbd5e1; cursor: pointer; border-bottom: 1px dotted transparent;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='transparent'" onclick="window.openSingleTrain('${tr.trainId}'); event.stopPropagation();" title="Zobrazit detail vlaku ${tr.trainId}">➔ ${tr.destStation}</span>
+                                <span style="font-size: 11px; color: #cbd5e1;">➔ ${tr.destStation}</span>
                             </div>
                         `;
                     });
