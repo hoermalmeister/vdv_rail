@@ -50,7 +50,6 @@ window.openSingleTrain = function(trainId) {
     if (matchedRoute) {
         let isBackward = false;
         
-        // FIXED: Detect if the train is physically traveling against the defined route direction
         if (matchedRoute.changeAt && matchedRoute.changesTo) {
             let rChangeIdx = matchedRoute.waypoints.indexOf(matchedRoute.changeAt);
             let line1Wps = matchedRoute.waypoints.slice(0, rChangeIdx + 1);
@@ -63,7 +62,6 @@ window.openSingleTrain = function(trainId) {
             }
         }
 
-        // Apply directional swap to the starting line
         let startLine = isBackward ? matchedRoute.changesTo : matchedRoute.lineName;
         let startColor = isBackward 
             ? (window.lineColorsDict[startLine] || matchedRoute.changeColor || "#94a3b8") 
@@ -72,7 +70,6 @@ window.openSingleTrain = function(trainId) {
 
         badgeHtml += `<span class="line-badge" style="background-color:${startColor}; color:${text1}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${startLine}')" title="Zobrazit jízdní řád linky ${startLine}">${startLine}</span>`;
 
-        // Apply directional swap to the ending line
         if (matchedRoute.changeAt && matchedRoute.changesTo) {
             endLineName = isBackward ? matchedRoute.lineName : matchedRoute.changesTo;
             endLineColor = isBackward 
@@ -87,11 +84,9 @@ window.openSingleTrain = function(trainId) {
 
     let vehicleHtml = vehicleType !== "Neznámý" ? `<span style="font-size: 13px; margin-left: auto; color: #38bdf8; font-weight: 600; padding: 4px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 4px;">Vozidlo: ${vehicleType}</span>` : '';
     
-    // Setup Header & Clear Controls
     title.innerHTML = `${badgeHtml} Vlak ${trainId} ${vehicleHtml}`;
     controls.innerHTML = ''; 
 
-    // Render Vertical Timetable
     let html = `<table class="modern-tt" style="width: 100%; text-align: left;">
         <thead>
             <tr>
@@ -102,7 +97,6 @@ window.openSingleTrain = function(trainId) {
         </thead>
         <tbody>`;
 
-    // Merge consecutive identical stations into Arrival / Departure
     let mergedStops = [];
     for (let i = 0; i < foundTrain.stops.length; i++) {
         let currentStop = foundTrain.stops[i];
@@ -143,7 +137,35 @@ window.openSingleTrain = function(trainId) {
             <td style="text-align: center;">${depHtml}</td>
         </tr>`;
 
-        // FIXED: Inject the dynamically swapped destination line name and color
+        // FIXED: Inject Transfer Logic right under the station
+        // Skips the first station (idx > 0)
+        if (idx > 0 && arr) {
+            if (typeof window.findTransfers === 'function') {
+                let transfers = window.findTransfers(s.station, arr, trainId);
+                if (transfers.length > 0) {
+                    let trHtml = `<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">`;
+                    transfers.forEach(tr => {
+                        let tColor = window.getContrastColor(tr.color);
+                        trHtml += `
+                            <div style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
+                                <span class="line-badge" style="background-color:${tr.color}; color:${tColor}; cursor: pointer;" onclick="window.openTimetable('${tr.lineName}'); event.stopPropagation();" title="Zobrazit linku ${tr.lineName}">${tr.lineName}</span>
+                                <span style="font-family: monospace; font-size: 13px; color: #e2e8f0; font-weight: 600;">${tr.depTime}</span>
+                                <span style="font-size: 11px; color: #cbd5e1; cursor: pointer; border-bottom: 1px dotted transparent;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='transparent'" onclick="window.openSingleTrain('${tr.trainId}'); event.stopPropagation();" title="Zobrazit detail vlaku ${tr.trainId}">➔ ${tr.destStation}</span>
+                            </div>
+                        `;
+                    });
+                    trHtml += `</div>`;
+                    
+                    html += `<tr class="aux-row">
+                        <td colspan="3" style="padding: 8px 12px; background-color: #141b2d;">
+                            <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Možné přestupy:</div>
+                            ${trHtml}
+                        </td>
+                    </tr>`;
+                }
+            }
+        }
+
         if (matchedRoute && matchedRoute.changeAt && endLineName && s.station === matchedRoute.changeAt && idx < mergedStops.length - 1) {
             let text2 = window.getContrastColor(endLineColor);
             html += `<tr class="aux-row">
@@ -158,7 +180,6 @@ window.openSingleTrain = function(trainId) {
     html += `</tbody></table>`;
     content.innerHTML = html;
 
-    // Render Footer with Notes
     let fHtml = `<div class="legend-grid">`;
     if (foundTrain.notes && foundTrain.notes.length > 0) {
         foundTrain.notes.forEach(note => {
