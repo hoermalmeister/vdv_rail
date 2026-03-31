@@ -44,17 +44,44 @@ window.openSingleTrain = function(trainId) {
     }
 
     let badgeHtml = "";
-    if (matchedRoute) {
-        let color1 = window.lineColorsDict[matchedRoute.lineName] || matchedRoute.color || "#94a3b8";
-        let text1 = window.getContrastColor(color1);
-        badgeHtml += `<span class="line-badge" style="background-color:${color1}; color:${text1}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${matchedRoute.lineName}')" title="Zobrazit jízdní řád linky ${matchedRoute.lineName}">${matchedRoute.lineName}</span>`;
+    let endLineName = "";
+    let endLineColor = "";
 
-        // If the train changes lines mid-journey, show the second badge as well
+    if (matchedRoute) {
+        let isBackward = false;
+        
+        // FIXED: Detect if the train is physically traveling against the defined route direction
         if (matchedRoute.changeAt && matchedRoute.changesTo) {
-            let color2 = window.lineColorsDict[matchedRoute.changesTo] || matchedRoute.changeColor || "#94a3b8";
-            let text2 = window.getContrastColor(color2);
+            let rChangeIdx = matchedRoute.waypoints.indexOf(matchedRoute.changeAt);
+            let line1Wps = matchedRoute.waypoints.slice(0, rChangeIdx + 1);
+            let line2Wps = matchedRoute.waypoints.slice(rChangeIdx);
+            
+            for (let stop of foundTrain.stops) {
+                if (stop.station === matchedRoute.changeAt) continue;
+                if (line1Wps.includes(stop.station)) { isBackward = false; break; }
+                if (line2Wps.includes(stop.station)) { isBackward = true; break; }
+            }
+        }
+
+        // Apply directional swap to the starting line
+        let startLine = isBackward ? matchedRoute.changesTo : matchedRoute.lineName;
+        let startColor = isBackward 
+            ? (window.lineColorsDict[startLine] || matchedRoute.changeColor || "#94a3b8") 
+            : (window.lineColorsDict[startLine] || matchedRoute.color || "#94a3b8");
+        let text1 = window.getContrastColor(startColor);
+
+        badgeHtml += `<span class="line-badge" style="background-color:${startColor}; color:${text1}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${startLine}')" title="Zobrazit jízdní řád linky ${startLine}">${startLine}</span>`;
+
+        // Apply directional swap to the ending line
+        if (matchedRoute.changeAt && matchedRoute.changesTo) {
+            endLineName = isBackward ? matchedRoute.lineName : matchedRoute.changesTo;
+            endLineColor = isBackward 
+                ? (window.lineColorsDict[endLineName] || matchedRoute.color || "#94a3b8") 
+                : (window.lineColorsDict[endLineName] || matchedRoute.changeColor || "#94a3b8");
+            let text2 = window.getContrastColor(endLineColor);
+            
             badgeHtml += `<span style="color: #94a3b8; margin-right: 8px; font-size: 14px;">➔</span>`;
-            badgeHtml += `<span class="line-badge" style="background-color:${color2}; color:${text2}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${matchedRoute.changesTo}')" title="Zobrazit jízdní řád linky ${matchedRoute.changesTo}">${matchedRoute.changesTo}</span>`;
+            badgeHtml += `<span class="line-badge" style="background-color:${endLineColor}; color:${text2}; font-size: 16px; padding: 4px 12px; margin-right: 8px; cursor: pointer;" onclick="window.openTimetable('${endLineName}')" title="Zobrazit jízdní řád linky ${endLineName}">${endLineName}</span>`;
         }
     }
 
@@ -116,14 +143,13 @@ window.openSingleTrain = function(trainId) {
             <td style="text-align: center;">${depHtml}</td>
         </tr>`;
 
-        // Inject a subtle informative row right after the station where the train changes lines
-        if (matchedRoute && matchedRoute.changeAt && matchedRoute.changesTo && s.station === matchedRoute.changeAt && idx < mergedStops.length - 1) {
-            let color2 = window.lineColorsDict[matchedRoute.changesTo] || matchedRoute.changeColor || "#94a3b8";
-            let text2 = window.getContrastColor(color2);
+        // FIXED: Inject the dynamically swapped destination line name and color
+        if (matchedRoute && matchedRoute.changeAt && endLineName && s.station === matchedRoute.changeAt && idx < mergedStops.length - 1) {
+            let text2 = window.getContrastColor(endLineColor);
             html += `<tr class="aux-row">
                 <td colspan="3" style="text-align: center; padding: 6px;">
                     <span style="font-size: 11px; color: #94a3b8;">Vlak dále pokračuje jako linka</span> 
-                    <span class="line-badge" style="background-color:${color2}; color:${text2}; cursor: pointer; margin-left: 6px;" onclick="window.openTimetable('${matchedRoute.changesTo}')" title="Zobrazit jízdní řád linky ${matchedRoute.changesTo}">${matchedRoute.changesTo}</span>
+                    <span class="line-badge" style="background-color:${endLineColor}; color:${text2}; cursor: pointer; margin-left: 6px;" onclick="window.openTimetable('${endLineName}')" title="Zobrazit jízdní řád linky ${endLineName}">${endLineName}</span>
                 </td>
             </tr>`;
         }
