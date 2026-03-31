@@ -63,14 +63,40 @@ window.openSingleTrain = function(trainId) {
         </thead>
         <tbody>`;
 
-    foundTrain.stops.forEach((s, idx) => {
+    // FIXED: Merge consecutive identical stations into Arrival / Departure
+    let mergedStops = [];
+    for (let i = 0; i < foundTrain.stops.length; i++) {
+        let currentStop = foundTrain.stops[i];
+        let nextStop = foundTrain.stops[i + 1];
+
+        if (nextStop && currentStop.station === nextStop.station) {
+            // It's a wait at a station, merge the two rows
+            mergedStops.push({
+                station: currentStop.station,
+                arrival: currentStop.arrival || currentStop.time || '',
+                departure: nextStop.departure || nextStop.time || '',
+                request_stop: currentStop.request_stop || nextStop.request_stop
+            });
+            i++; // Skip the next stop since we merged it
+        } else {
+            // Normal single row stop
+            mergedStops.push({
+                station: currentStop.station,
+                arrival: currentStop.arrival || currentStop.time || '',
+                departure: currentStop.departure || currentStop.time || '',
+                request_stop: currentStop.request_stop
+            });
+        }
+    }
+
+    mergedStops.forEach((s, idx) => {
         let req = s.request_stop ? `<span class="tt-req">×</span>` : '';
-        let arr = s.arrival || s.time || '';
-        let dep = s.departure || s.time || '';
+        let arr = s.arrival;
+        let dep = s.departure;
         
         // Blank out arrivals for the very first station, and departures for the very last station
         if (idx === 0) arr = ''; 
-        if (idx === foundTrain.stops.length - 1) dep = ''; 
+        if (idx === mergedStops.length - 1) dep = ''; 
 
         let arrHtml = arr ? `${req}<span class="tt-time">${arr}</span>` : '<span style="color:#475569;">-</span>';
         let depHtml = dep ? `${req}<span class="tt-time">${dep}</span>` : '<span style="color:#475569;">-</span>';
@@ -257,7 +283,8 @@ window.renderTimetableGrid = function(dirKey) {
     });
 
     let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
-    trains.forEach(t => html += `<th class="sticky-top-1">${t.id}</th>`);
+    // FIXED: Wrap train IDs in spans with onclick to open the single train view seamlessly
+    trains.forEach(t => html += `<th class="sticky-top-1"><span onclick="window.openSingleTrain('${t.id}'); event.stopPropagation();" style="cursor: pointer;">${t.id}</span></th>`);
     html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
     trains.forEach(t => {
         let nHtml = [];
