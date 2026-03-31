@@ -7,6 +7,7 @@ window.timetablesData = {};
 window.notesDict = {};
 window.lineColorsDict = {};
 window.lineEndpoints = {};
+window.transferLogicData = {};
 
 window.getContrastColor = function(hexColor) {
     if (!hexColor) return '#ffffff';
@@ -29,13 +30,20 @@ window.timeToMins = function(timeStr) {
 // --- DATA INITIALIZATION ---
 async function loadMapData() {
     try {
-        const [stationsRes, routesRes, ttRes, notesRes] = await Promise.all([
-            fetch('stations.json'), fetch('routes.json'), fetch('timetables_master.json'), fetch('notes_dict.json')
+        // FIXED: Corrected the typo to 'transfer_logic.json'
+        const [stationsRes, routesRes, ttRes, notesRes, transferLogicRes] = await Promise.all([
+            fetch('stations.json'), 
+            fetch('routes.json'), 
+            fetch('timetables_master.json'), 
+            fetch('notes_dict.json'),
+            fetch('transfer_logic.json') 
         ]);
+        
         window.stationsData = await stationsRes.json();
         window.routesData = await routesRes.json();
         window.timetablesData = await ttRes.json();
         window.notesDict = await notesRes.json();
+        window.transferLogicData = await transferLogicRes.json();
         
         if (typeof window.initializeMap === "function") {
             window.initializeMap();
