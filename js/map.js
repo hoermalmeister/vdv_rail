@@ -16,8 +16,15 @@ window.initializeMap = function() {
     window.generateTooltipHtml = function(segData, isClick = false) {
         let destinationsHtml = "";
         for (const [routeLabel, data] of Object.entries(segData.destinations)) {
-            const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
-            let trainsHtml = isClick ? `<div class="dest-trains">${uniqueTrains}</div>` : "";
+            const uniqueTrains = [...new Set(data.trains)].sort();
+            
+            let trainsHtml = "";
+            if (isClick) {
+                // NEW: Wrap each train in a clickable span that prevents text-wrapping mid-name
+                let clickableTrains = uniqueTrains.map(t => `<span onclick="window.openSingleTrain('${t}'); event.stopPropagation();" style="cursor: pointer; white-space: nowrap;">${t}</span>`).join(', ');
+                trainsHtml = `<div class="dest-trains">${clickableTrains}</div>`;
+            }
+            
             destinationsHtml += `<div class="dest-group"><div class="dest-row"><span>${routeLabel}</span><span class="dest-right"><span class="dest-count">${data.count}</span></span></div>${trainsHtml}</div>`;
         }
         const badgeTextColor = window.getContrastColor(segData.color);
@@ -66,7 +73,6 @@ window.initializeMap = function() {
             ? `<div class="modal-header" style="justify-content: flex-end;"><button onclick="window.closeModal()" class="close-btn">&times;</button></div>` 
             : `<div class="modal-header"><button onclick="window.openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button><button onclick="window.closeModal()" class="close-btn">&times;</button></div>`;
 
-        // FIXED: The "Open Timetable" button has been entirely removed for the mobile info modal.
         content.innerHTML = headerHtml + detailedHtml;
         document.getElementById('mobile-modal').style.display = 'flex';
     };
@@ -183,7 +189,6 @@ window.initializeMap = function() {
         const tooltipHtml = `<div style="text-align: center; min-width: 80px;"><div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div></div>`;
         const clickPopupHtml = `<div style="text-align: center; min-width: 120px; pointer-events: auto;"><div style="font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${name}</div><div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div><div style="font-size: 10px; color: #94a3b8; margin-top: 8px;">Kliknutím na linku otevřete JŘ</div></div>`;
 
-        // FIXED: Mobile stations are now easily clickable by drawing an invisible 20px fat circle on top
         const marker = L.circleMarker(coords, { 
             radius: isJunction ? 5.5 : 3.5, 
             fillColor: "#ffffff", 
@@ -191,20 +196,13 @@ window.initializeMap = function() {
             weight: isJunction ? 3 : 2, 
             opacity: 1, 
             fillOpacity: 1,
-            interactive: !window.isMobile // Disable standard marker clicks on mobile to avoid double-firing
+            interactive: !window.isMobile 
         }).addTo(map);
 
         let interactiveMarker = marker;
 
         if (window.isMobile) {
-            interactiveMarker = L.circleMarker(coords, { 
-                radius: 25, 
-                color: 'transparent', 
-                fillColor: 'transparent', 
-                interactive: true 
-            }).addTo(map);
-            
-            // Forces the invisible fat station circle to sit above all the train lines
+            interactiveMarker = L.circleMarker(coords, { radius: 25, color: 'transparent', fillColor: 'transparent', interactive: true }).addTo(map);
             interactiveMarker.bringToFront();
         }
 
