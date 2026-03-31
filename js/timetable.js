@@ -1,23 +1,47 @@
-// --- NEW FEATURE: Individual Train Timetable ---
-window.openSingleTrain = function(trainId) {
+// --- NEW FEATURE: Navigation History Stack ---
+window.timetableHistory = [];
+window.currentTimetableView = null;
+
+window.goBackTimetable = function() {
+    if (!window.timetableHistory || window.timetableHistory.length === 0) return;
+    let prevState = window.timetableHistory.pop();
+    
+    if (prevState.type === 'line') {
+        window.openTimetable(prevState.id, true, prevState.dirKey);
+    } else if (prevState.type === 'train') {
+        window.openSingleTrain(prevState.id, true);
+    }
+};
+
+// --- FEATURE: Individual Train Timetable ---
+window.openSingleTrain = function(trainId, isBack = false) {
     const ttModal = document.getElementById('tt-modal');
     const title = document.getElementById('tt-title');
     const controls = document.getElementById('tt-controls');
     const content = document.getElementById('tt-content');
     const footer = document.getElementById('tt-footer');
     
-    // Close map popups and mobile segment menus to clear the view
     if (typeof window.map !== 'undefined') window.map.closePopup();
     if (document.getElementById('mobile-modal')) document.getElementById('mobile-modal').style.display = 'none';
+
+    // History Logic
+    if (ttModal.style.display !== 'flex') {
+        window.timetableHistory = [];
+        window.currentTimetableView = null;
+    }
+    if (!isBack && window.currentTimetableView) {
+        if (window.currentTimetableView.id !== trainId || window.currentTimetableView.type !== 'train') {
+            window.timetableHistory.push(JSON.parse(JSON.stringify(window.currentTimetableView)));
+        }
+    }
+    window.currentTimetableView = { type: 'train', id: trainId };
 
     let foundTrain = null;
     let vehicleType = "Neznámý";
 
-    // Search the timetables for this specific train and extract vehicle type from the filename
     for (let pdf in window.timetablesData) {
         if (window.timetablesData[pdf].trains && window.timetablesData[pdf].trains[trainId]) {
             foundTrain = JSON.parse(JSON.stringify(window.timetablesData[pdf].trains[trainId]));
-            
             const types = ["BEMU", "EMU130", "EMU140", "DMU120", "DMU70"];
             for (let type of types) {
                 if (pdf.includes(type)) {
@@ -34,7 +58,6 @@ window.openSingleTrain = function(trainId) {
         return;
     }
 
-    // Determine the primary line colors to use in the header and detect line changes
     let matchedRoute = null;
     for (let r of window.routesData) {
         if (r.trainNames && r.trainNames.includes(trainId)) {
@@ -83,8 +106,9 @@ window.openSingleTrain = function(trainId) {
     }
 
     let vehicleHtml = vehicleType !== "Neznámý" ? `<span style="font-size: 13px; margin-left: auto; color: #38bdf8; font-weight: 600; padding: 4px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 4px;">Vozidlo: ${vehicleType}</span>` : '';
+    let backBtnHtml = window.timetableHistory.length > 0 ? `<button onclick="window.goBackTimetable()" style="background:none; border:none; color:#94a3b8; font-size:14px; font-weight:600; cursor:pointer; margin-right:16px; padding:4px 8px; border-radius:4px; transition:0.2s; display:flex; align-items:center;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'; this.style.color='#fff';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#94a3b8';">← Zpět</button>` : '';
     
-    title.innerHTML = `${badgeHtml} Vlak ${trainId} ${vehicleHtml}`;
+    title.innerHTML = `${backBtnHtml} ${badgeHtml} Vlak ${trainId} ${vehicleHtml}`;
     controls.innerHTML = ''; 
 
     let html = `<table class="modern-tt" style="width: 100%; text-align: left;">
@@ -144,7 +168,6 @@ window.openSingleTrain = function(trainId) {
                     let trHtml = `<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">`;
                     transfers.forEach(tr => {
                         let tColor = window.getContrastColor(tr.color);
-                        // FIXED: Added the clickable train name right beside the line badge
                         trHtml += `
                             <div style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
                                 <span class="line-badge" style="background-color:${tr.color}; color:${tColor}; cursor: pointer;" onclick="window.openTimetable('${tr.lineName}'); event.stopPropagation();" title="Zobrazit linku ${tr.lineName}">${tr.lineName}</span>
@@ -192,8 +215,8 @@ window.openSingleTrain = function(trainId) {
     ttModal.style.display = 'flex';
 };
 
-// --- EXISTING FEATURE: Full Line Timetable ---
-window.openTimetable = function(lineName) {
+// --- FEATURE: Full Line Timetable ---
+window.openTimetable = function(lineName, isBack = false, restoreDirKey = null) {
     const ttModal = document.getElementById('tt-modal');
     const title = document.getElementById('tt-title');
     const controls = document.getElementById('tt-controls');
@@ -202,8 +225,22 @@ window.openTimetable = function(lineName) {
     
     if (typeof window.map !== 'undefined') window.map.closePopup();
 
+    // History Logic
+    if (ttModal.style.display !== 'flex') {
+        window.timetableHistory = [];
+        window.currentTimetableView = null;
+    }
+    if (!isBack && window.currentTimetableView) {
+        if (window.currentTimetableView.id !== lineName || window.currentTimetableView.type !== 'line') {
+            window.timetableHistory.push(JSON.parse(JSON.stringify(window.currentTimetableView)));
+        }
+    }
+    window.currentTimetableView = { type: 'line', id: lineName, dirKey: null };
+
     const lineColor = window.lineColorsDict[lineName] || '#ffffff';
-    title.innerHTML = `<span class="line-badge" style="background-color:${lineColor}; color:${window.getContrastColor(lineColor)}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
+    let backBtnHtml = window.timetableHistory.length > 0 ? `<button onclick="window.goBackTimetable()" style="background:none; border:none; color:#94a3b8; font-size:14px; font-weight:600; cursor:pointer; margin-right:16px; padding:4px 8px; border-radius:4px; transition:0.2s; display:flex; align-items:center;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'; this.style.color='#fff';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#94a3b8';">← Zpět</button>` : '';
+
+    title.innerHTML = `${backBtnHtml} <span class="line-badge" style="background-color:${lineColor}; color:${window.getContrastColor(lineColor)}; font-size: 16px; padding: 4px 12px; cursor: default;">${lineName}</span> Jízdní řád`;
 
     let lineTrains = new Set();
     window.routesData.forEach(r => {
@@ -328,12 +365,22 @@ window.openTimetable = function(lineName) {
     controls.innerHTML = dirKeys.map((key, idx) => `<button class="dir-btn ${idx === 0 ? 'active' : ''}" onclick="window.renderTimetableGrid('${key}')">${key}</button>`).join('');
 
     window.currentTimetableData = directions;
-    window.renderTimetableGrid(dirKeys[0]);
+    
+    // Automatically jump to the correct direction tab if we navigated "Back" to this line
+    let initialDir = restoreDirKey && directions[restoreDirKey] ? restoreDirKey : dirKeys[0];
+    window.renderTimetableGrid(initialDir);
+    
     ttModal.style.display = 'flex';
 };
 
 window.renderTimetableGrid = function(dirKey) {
     document.querySelectorAll('.dir-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === dirKey));
+    
+    // Update the state so the Back button remembers which direction tab you were looking at
+    if (window.currentTimetableView && window.currentTimetableView.type === 'line') {
+        window.currentTimetableView.dirKey = dirKey;
+    }
+
     const { masterStations, trains } = window.currentTimetableData[dirKey];
     const content = document.getElementById('tt-content');
     const footer = document.getElementById('tt-footer');
@@ -418,4 +465,9 @@ window.renderTimetableGrid = function(dirKey) {
     footer.innerHTML = fHtml;
 };
 
-window.closeTimetable = function() { document.getElementById('tt-modal').style.display = 'none'; };
+// Reset history when the modal is completely closed
+window.closeTimetable = function() { 
+    window.timetableHistory = [];
+    window.currentTimetableView = null;
+    document.getElementById('tt-modal').style.display = 'none'; 
+};
