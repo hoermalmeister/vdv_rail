@@ -1,13 +1,29 @@
 window.initializeMap = function() {
-    if (window.map) { window.map.remove(); }
+    // 1. SELF-HEALING CHECK: If the map div is missing, create it automatically
+    let mapDiv = document.getElementById('map');
+    if (!mapDiv) {
+        console.warn("Map container was missing from HTML! Auto-creating it.");
+        mapDiv = document.createElement('div');
+        mapDiv.id = 'map';
+        // Put it at the very top of the body
+        document.body.insertBefore(mapDiv, document.body.firstChild);
+    }
 
+    // 2. CLEANUP: Destroy any ghost maps from Live Server refreshing
+    if (window.map != undefined) {
+        window.map.off();
+        window.map.remove();
+        window.map = null;
+    }
+
+    // 3. Initialize the map safely
     const map = L.map('map').setView([49.4, 15.6], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
     window.map = map;
 
     const segmentsMap = {};
     const stationLines = {};
-
+    
     window.routesData.forEach(route => {
         if (route.color && !window.lineColorsDict[route.lineName]) window.lineColorsDict[route.lineName] = route.color;
     });
