@@ -116,3 +116,117 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     .timetable-header { border-radius: 0; padding: 12px 16px; }
     .sticky-col { min-width: 130px; padding-left: 12px !important; font-size: 12px; }
 }
+
+/* --- ROUTE PLANNER (BETA) --- */
+
+/* Desktop Layout */
+.planner-container {
+    position: absolute;
+    top: 150px; /* Sits perfectly below the map-overlay */
+    left: 20px;
+    width: 320px; /* Exact same width as map-overlay */
+    z-index: 1000;
+}
+
+.planner-mobile-btn {
+    display: none; /* Hidden on desktop */
+}
+
+.planner-box {
+    background: rgba(15, 23, 42, 0.95);
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+}
+
+.planner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.planner-header h2 {
+    margin: 0;
+    font-size: 15px;
+    color: #f8fafc;
+}
+
+.planner-close-mobile {
+    display: none; /* Hidden on desktop */
+}
+
+/* Inputs & Form Styling */
+.planner-group { margin-bottom: 12px; }
+.planner-group label { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.planner-input { width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 13px; transition: 0.2s; }
+.planner-input:focus { outline: none; border-color: #38bdf8; background: rgba(0,0,0,0.5); }
+.planner-row { display: flex; gap: 10px; }
+.planner-row .planner-group { flex: 1; }
+.planner-btn { width: 100%; background: #38bdf8; color: #0f172a; font-weight: 700; border: none; padding: 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: 4px; }
+.planner-btn:hover { background: #0ea5e9; }
+
+#planner-backdrop { display: none; }
+
+/* Mobile Layout Overrides */
+@media (max-width: 768px) {
+    .planner-container {
+        top: 130px; /* Sits right below the mobile title */
+        left: 10px;
+        right: 10px;
+        width: auto;
+    }
+    
+    .planner-mobile-btn {
+        display: block;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.95);
+        color: #f8fafc;
+        border: 1px solid rgba(255,255,255,0.1);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        text-align: left;
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+    }
+
+    .planner-box {
+        display: none; /* Hidden until button is clicked */
+    }
+
+    /* Activated Mobile Modal */
+    .planner-box.mobile-active {
+        display: block;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 400px;
+        z-index: 2000;
+    }
+
+    .planner-close-mobile {
+        display: block;
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 26px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+
+    #planner-backdrop.active {
+        display: block;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 1999;
+    }
+}
