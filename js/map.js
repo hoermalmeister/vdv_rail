@@ -1,8 +1,14 @@
 window.initializeMap = function() {
+    // --- FIXED: Destroy the old map instance if it already exists ---
+    if (window.map) {
+        window.map.remove();
+    }
+
     const map = L.map('map').setView([49.4, 15.6], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
     window.map = map;
 
+    // ... Keep the rest of your map.js code exactly the same from here down ...
     const segmentsMap = {};
     const stationLines = {};
 
