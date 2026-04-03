@@ -16,8 +16,6 @@ window.initializeMap = function() {
     window.generateTooltipHtml = function(segData, isClick = false) {
         let destinationsHtml = "";
         for (const [routeLabel, data] of Object.entries(segData.destinations)) {
-            const uniqueTrains = [...new Set(data.trains)].sort().join(', ');
-            let trainsHtml = isClick ? `<div class="dest-trains">${uniqueTrains}</div>` : "";
             const uniqueTrains = [...new Set(data.trains)].sort();
             
             let trainsHtml = "";
@@ -207,14 +205,6 @@ window.initializeMap = function() {
         let interactiveMarker = marker;
 
         if (window.isMobile) {
-            interactiveMarker = L.circleMarker(coords, { 
-                radius: 25, 
-                color: 'transparent', 
-                fillColor: 'transparent', 
-                interactive: true 
-            }).addTo(map);
-            
-            // Forces the invisible fat station circle to sit above all the train lines
             interactiveMarker = L.circleMarker(coords, { radius: 25, color: 'transparent', fillColor: 'transparent', interactive: true }).addTo(map);
             interactiveMarker.bringToFront();
         }
