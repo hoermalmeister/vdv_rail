@@ -37,14 +37,16 @@
             </div>
             
             <div id="planner-form">
-                <div class="planner-group">
+                <div class="planner-group" style="position: relative;">
                     <label>Odkud</label>
-                    <input type="text" id="planner-from" class="planner-input" placeholder="Např. Jihlava">
+                    <input type="text" id="planner-from" class="planner-input" placeholder="Např. Jihlava" autocomplete="off" oninput="window.handleInput('from')" onfocus="window.handleInput('from')">
+                    <div id="suggestions-from" class="suggestions-box"></div>
                 </div>
                 
-                <div class="planner-group">
+                <div class="planner-group" style="position: relative;">
                     <label>Kam</label>
-                    <input type="text" id="planner-to" class="planner-input" placeholder="Např. Havlíčkův Brod">
+                    <input type="text" id="planner-to" class="planner-input" placeholder="Např. Havlíčkův Brod" autocomplete="off" oninput="window.handleInput('to')" onfocus="window.handleInput('to')">
+                    <div id="suggestions-to" class="suggestions-box"></div>
                 </div>
                 
                 <div class="planner-row">
@@ -65,6 +67,9 @@
                         <input type="time" id="planner-time" class="planner-input" value="08:00">
                     </div>
                 </div>
+                
+                <button class="planner-btn" onclick="window.runPlannerSearch()">Vyhledat</button>
+            </div>
                 
                 <button class="planner-btn" onclick="window.runPlannerSearch()">Vyhledat</button>
             </div>
