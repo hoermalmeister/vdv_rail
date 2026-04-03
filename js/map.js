@@ -1,4 +1,6 @@
 window.initializeMap = function() {
+    if (window.map) { window.map.remove(); }
+
     const map = L.map('map').setView([49.4, 15.6], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
     window.map = map;
@@ -20,7 +22,6 @@ window.initializeMap = function() {
             
             let trainsHtml = "";
             if (isClick) {
-                // NEW: Wrap each train in a clickable span that prevents text-wrapping mid-name
                 let clickableTrains = uniqueTrains.map(t => `<span onclick="window.openSingleTrain('${t}'); event.stopPropagation();" style="cursor: pointer; white-space: nowrap;">${t}</span>`).join(', ');
                 trainsHtml = `<div class="dest-trains">${clickableTrains}</div>`;
             }
@@ -28,10 +29,10 @@ window.initializeMap = function() {
             destinationsHtml += `<div class="dest-group"><div class="dest-row"><span>${routeLabel}</span><span class="dest-right"><span class="dest-count">${data.count}</span></span></div>${trainsHtml}</div>`;
         }
         const badgeTextColor = window.getContrastColor(segData.color);
-
+        
         const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
         const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
-
+        
         return `<div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; ${pointerStyle}" ${clickAttr}>${segData.lineName}</span></div>
                 <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
                 <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
@@ -73,7 +74,6 @@ window.initializeMap = function() {
             ? `<div class="modal-header" style="justify-content: flex-end;"><button onclick="window.closeModal()" class="close-btn">&times;</button></div>` 
             : `<div class="modal-header"><button onclick="window.openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button><button onclick="window.closeModal()" class="close-btn">&times;</button></div>`;
 
-        // FIXED: The "Open Timetable" button has been entirely removed for the mobile info modal.
         content.innerHTML = headerHtml + detailedHtml;
         document.getElementById('mobile-modal').style.display = 'flex';
     };
@@ -190,7 +190,6 @@ window.initializeMap = function() {
         const tooltipHtml = `<div style="text-align: center; min-width: 80px;"><div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div></div>`;
         const clickPopupHtml = `<div style="text-align: center; min-width: 120px; pointer-events: auto;"><div style="font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${name}</div><div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div><div style="font-size: 10px; color: #94a3b8; margin-top: 8px;">Kliknutím na linku otevřete JŘ</div></div>`;
 
-        // FIXED: Mobile stations are now easily clickable by drawing an invisible 20px fat circle on top
         const marker = L.circleMarker(coords, { 
             radius: isJunction ? 5.5 : 3.5, 
             fillColor: "#ffffff", 
@@ -198,7 +197,6 @@ window.initializeMap = function() {
             weight: isJunction ? 3 : 2, 
             opacity: 1, 
             fillOpacity: 1,
-            interactive: !window.isMobile // Disable standard marker clicks on mobile to avoid double-firing
             interactive: !window.isMobile 
         }).addTo(map);
 
@@ -212,7 +210,7 @@ window.initializeMap = function() {
         if (!window.isMobile) {
             marker.bindTooltip(tooltipHtml, { className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8] });
         }
-
+        
         interactiveMarker.bindPopup(clickPopupHtml, { className: 'custom-popup station-popup' });
     }
 
