@@ -52,8 +52,6 @@ async function loadMapData() {
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadMapData);
-} else {
+window.onload = function() {
     loadMapData();
-}
+};
