@@ -23,6 +23,67 @@
         <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte vlaky.</p>
     </div>
 
+    <div id="planner-backdrop" onclick="window.togglePlannerModal(false)"></div>
+
+    <div class="planner-container">
+        <button class="planner-mobile-btn" onclick="window.togglePlannerModal(true)">
+            <span>🔍</span> Vyhledávač spojení (Beta)
+        </button>
+
+        <div id="planner-box" class="planner-box">
+            <div class="planner-header">
+                <h2>Vyhledávač spojení</h2>
+                <button class="planner-close-mobile" onclick="window.togglePlannerModal(false)">&times;</button>
+            </div>
+            
+            <div class="planner-group">
+                <label>Odkud</label>
+                <input type="text" class="planner-input" placeholder="Např. Jihlava">
+            </div>
+            
+            <div class="planner-group">
+                <label>Kam</label>
+                <input type="text" class="planner-input" placeholder="Např. Havlíčkův Brod">
+            </div>
+            
+            <div class="planner-row">
+                <div class="planner-group">
+                    <label>Den v týdnu</label>
+                    <select class="planner-input">
+                        <option>Pondělí</option>
+                        <option>Úterý</option>
+                        <option>Středa</option>
+                        <option>Čtvrtek</option>
+                        <option>Pátek</option>
+                        <option>Sobota</option>
+                        <option>Neděle</option>
+                        <option>Státní svátek</option>
+                    </select>
+                </div>
+                <div class="planner-group">
+                    <label>Čas</label>
+                    <input type="time" class="planner-input" value="08:00">
+                </div>
+            </div>
+            
+            <button class="planner-btn" onclick="alert('Vyhledávání bude zprovozněno v další fázi!')">Vyhledat</button>
+        </div>
+    </div>
+
+    <script>
+        window.togglePlannerModal = function(show) {
+            const box = document.getElementById('planner-box');
+            const backdrop = document.getElementById('planner-backdrop');
+            if (show) {
+                box.classList.add('mobile-active');
+                backdrop.classList.add('active');
+            } else {
+                box.classList.remove('mobile-active');
+                backdrop.classList.remove('active');
+            }
+        };
+    </script>
+    
     <div id="mobile-modal" class="modal-overlay">
         <div id="mobile-modal-content" class="modal-box"></div>
     </div>
