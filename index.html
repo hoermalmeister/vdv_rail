@@ -36,39 +36,41 @@
                 <button class="planner-close-mobile" onclick="window.togglePlannerModal(false)">&times;</button>
             </div>
             
-            <div class="planner-group">
-                <label>Odkud</label>
-                <input type="text" class="planner-input" placeholder="Např. Jihlava">
-            </div>
-            
-            <div class="planner-group">
-                <label>Kam</label>
-                <input type="text" class="planner-input" placeholder="Např. Havlíčkův Brod">
-            </div>
-            
-            <div class="planner-row">
+            <div id="planner-form">
                 <div class="planner-group">
-                    <label>Den v týdnu</label>
-                    <select class="planner-input">
-                        <option>Pondělí</option>
-                        <option>Úterý</option>
-                        <option>Středa</option>
-                        <option>Čtvrtek</option>
-                        <option>Pátek</option>
-                        <option>Sobota</option>
-                        <option>Neděle</option>
-                        <option>Státní svátek</option>
-                    </select>
+                    <label>Odkud</label>
+                    <input type="text" id="planner-from" class="planner-input" placeholder="Např. Jihlava">
                 </div>
+                
                 <div class="planner-group">
-                    <label>Čas</label>
-                    <input type="time" class="planner-input" value="08:00">
+                    <label>Kam</label>
+                    <input type="text" id="planner-to" class="planner-input" placeholder="Např. Havlíčkův Brod">
                 </div>
+                
+                <div class="planner-row">
+                    <div class="planner-group">
+                        <label>Den v týdnu</label>
+                        <select id="planner-day" class="planner-input">
+                            <option>Pondělí</option>
+                            <option>Úterý</option>
+                            <option>Středa</option>
+                            <option>Čtvrtek</option>
+                            <option>Pátek</option>
+                            <option>Sobota</option>
+                            <option>Neděle</option>
+                        </select>
+                    </div>
+                    <div class="planner-group">
+                        <label>Čas</label>
+                        <input type="time" id="planner-time" class="planner-input" value="08:00">
+                    </div>
+                </div>
+                
+                <button class="planner-btn" onclick="window.runPlannerSearch()">Vyhledat</button>
             </div>
-            
-            <button class="planner-btn" onclick="alert('Vyhledávání bude zprovozněno v další fázi!')">Vyhledat</button>
+
+            <div id="planner-results" style="display: none; margin-top: 16px;"></div>
         </div>
-    </div>
 
     <script>
         window.togglePlannerModal = function(show) {
