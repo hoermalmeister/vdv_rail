@@ -122,9 +122,9 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 /* Desktop Layout */
 .planner-container {
     position: absolute;
-    top: 150px; /* Sits perfectly below the map-overlay */
-    left: 20px;
-    width: 320px; /* Exact same width as map-overlay */
+    top: 140px; /* Sits right below the desktop map-overlay */
+    right: 20px; /* Perfectly aligned to the right */
+    width: 320px; /* Matches desktop map-overlay max-width */
     z-index: 1000;
 }
 
@@ -172,14 +172,12 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 
 /* Mobile Layout Overrides */
 @media (max-width: 768px) {
-/* Desktop Layout */
-.planner-container {
-    position: absolute;
-    top: 150px; /* Adjust this slightly if your title box is taller/shorter */
-    right: 20px; /* FIXED: Moved from left to right */
-    width: 320px;
-    z-index: 1000;
-}
+    .planner-container {
+        top: 110px; /* Sits right below the mobile title */
+        right: 10px; /* Aligned right to match mobile title */
+        left: auto;
+        width: 250px; /* Matches mobile map-overlay max-width */
+    }
     
     .planner-mobile-btn {
         display: block;
@@ -187,9 +185,9 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         background: rgba(15, 23, 42, 0.95);
         color: #f8fafc;
         border: 1px solid rgba(255,255,255,0.1);
-        padding: 12px 16px;
+        padding: 10px 12px;
         border-radius: 8px;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         text-align: left;
