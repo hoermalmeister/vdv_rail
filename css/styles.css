@@ -240,3 +240,39 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         z-index: 4999; 
     }
 }
+
+/* --- PLANNER AUTOCOMPLETE SUGGESTIONS --- */
+.suggestions-box {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #1e293b;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    z-index: 6000;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+}
+
+.suggestion-item {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #e2e8f0;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: 0.1s;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: #38bdf8;
+    color: #0f172a;
+    font-weight: 700;
+}
