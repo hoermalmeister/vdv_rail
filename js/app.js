@@ -30,6 +30,9 @@ window.timeToMins = function(timeStr) {
 // --- DATA INITIALIZATION ---
 async function loadMapData() {
     try {
+        const [stationsRes, routesRes, ttRes, notesRes] = await Promise.all([
+            fetch('stations.json'), fetch('routes.json'), fetch('timetables_master.json'), fetch('notes_dict.json')
+        // FIXED: Corrected the typo to 'transfer_logic.json'
         const [stationsRes, routesRes, ttRes, notesRes, transferLogicRes] = await Promise.all([
             fetch('stations.json'), 
             fetch('routes.json'), 
@@ -43,12 +46,13 @@ async function loadMapData() {
         window.timetablesData = await ttRes.json();
         window.notesDict = await notesRes.json();
         window.transferLogicData = await transferLogicRes.json();
-        
+
         if (typeof window.initializeMap === "function") {
             window.initializeMap();
         }
     } catch (error) {
-        console.error("Chyba při načítání dat:", error);
+        console.error("Chyba:", error);
+        alert("Nepodařilo se načíst data. Běžíte na lokálním serveru?");
     }
 }
 
