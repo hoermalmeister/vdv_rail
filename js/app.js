@@ -30,7 +30,6 @@ window.timeToMins = function(timeStr) {
 // --- DATA INITIALIZATION ---
 async function loadMapData() {
     try {
-        // FIXED: Corrected the typo to 'transfer_logic.json'
         const [stationsRes, routesRes, ttRes, notesRes, transferLogicRes] = await Promise.all([
             fetch('stations.json'), 
             fetch('routes.json'), 
@@ -49,14 +48,8 @@ async function loadMapData() {
             window.initializeMap();
         }
     } catch (error) {
-        console.error("Chyba:", error);
-        alert("Nepodařilo se načíst data. Běžíte na lokálním serveru?");
+        console.error("Chyba při načítání dat:", error);
     }
 }
 
-// Wait for the HTML to fully load before fetching data and drawing the map
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadMapData);
-} else {
-    loadMapData();
-}
+loadMapData();
