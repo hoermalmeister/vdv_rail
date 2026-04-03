@@ -1,5 +1,6 @@
 // --- NEW FILE: js/transfers.js ---
 
+// Determines if a station is a junction by checking if >1 distinct lines pass through it
 window.isJunctionStation = function(station) {
     let lines = new Set();
     for (let r of window.routesData) {
@@ -18,6 +19,7 @@ window.isJunctionStation = function(station) {
     return lines.size > 1;
 };
 
+// Helper function to figure out exactly which line a train belongs to at a specific station
 window.getTrainLineAtStation = function(trainId, station) {
     let matchedRoute = null;
     for (let r of window.routesData) {
@@ -31,6 +33,7 @@ window.getTrainLineAtStation = function(trainId, station) {
     let lineName = matchedRoute.lineName;
     let color = window.lineColorsDict[lineName] || matchedRoute.color || "#94a3b8";
 
+    // Handle split lines based on geographic direction
     if (matchedRoute.changeAt && matchedRoute.changesTo) {
         let trainData = null;
         for (let pdf in window.timetablesData) {
@@ -70,6 +73,7 @@ window.getTrainLineAtStation = function(trainId, station) {
     return { lineName, color };
 };
 
+// Core transfer logic
 window.findTransfers = function(station, arrivalTime, currentTrainId) {
     if (!window.isJunctionStation(station)) return [];
 
@@ -89,8 +93,15 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
         }
     }
     let cNotes = (currentTrainObj && currentTrainObj.notes) ? currentTrainObj.notes : [];
-    let opCNotes = cNotes.filter(n => window.transferLogicData[n]); // Keep only notes that exist in the logic JSON
+    let opCNotes = cNotes.filter(n => window.transferLogicData[n]); 
     if (opCNotes.length === 0) opCNotes = ["no note"];
+
+    // NEW LOGIC: Gather all operating days (0-7) for the current train
+    let cDays = new Set();
+    for (let cN of opCNotes) {
+        let days = window.transferLogicData[cN] || [];
+        days.forEach(d => cDays.add(d));
+    }
 
     let transfers = [];
 
@@ -99,12 +110,12 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
         if (!trains) continue;
 
         for (let tId in trains) {
-            if (tId === currentTrainId) continue; 
+            if (tId === currentTrainId) continue; // Skip itself
             let t = trains[tId];
 
             let stIdx = t.stops.findIndex(s => s.station === station);
-            if (stIdx === -1) continue; 
-            if (stIdx === t.stops.length - 1) continue; 
+            if (stIdx === -1) continue; // Doesn't stop here
+            if (stIdx === t.stops.length - 1) continue; // Train terminates here (can't transfer to it)
 
             let depTime = t.stops[stIdx].departure || t.stops[stIdx].time;
             if (!depTime) continue;
@@ -112,33 +123,40 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
             let depMins = window.timeToMins(depTime);
             if (depMins === 99999) continue;
 
+            // Calculate difference, automatically handling midnight wrap-arounds
             let diff = (depMins - arrMins + 1440) % 1440;
             
+            // 5 to 20 minute window
             if (diff >= 5 && diff <= 20) {
                 let transLineObj = window.getTrainLineAtStation(tId, station);
                 let transLineName = transLineObj ? transLineObj.lineName : null;
                 let transColor = transLineObj ? transLineObj.color : "#94a3b8";
 
+                // Exclude trains on the exact same line
                 if (!transLineName || transLineName === currentLineName) continue;
 
-                // FIXED: Verify Operational Days Compatibility using your JSON matrix
+                // Fetch candidate train's notes
                 let tNotes = t.notes || [];
                 let opTNotes = tNotes.filter(n => window.transferLogicData[n]);
                 if (opTNotes.length === 0) opTNotes = ["no note"];
 
-                let isCompatible = false;
-                for (let cN of opCNotes) {
-                    let allowed = window.transferLogicData[cN] || [];
-                    for (let tN of opTNotes) {
-                        if (allowed.includes(tN)) {
-                            isCompatible = true;
-                            break;
-                        }
-                    }
-                    if (isCompatible) break;
+                // NEW LOGIC: Gather all operating days for the candidate transfer train
+                let tDays = new Set();
+                for (let tN of opTNotes) {
+                    let days = window.transferLogicData[tN] || [];
+                    days.forEach(d => tDays.add(d));
                 }
 
-                if (!isCompatible) continue; // Skip if they run on non-overlapping days
+                // NEW LOGIC: Check if they share at least one operating day (Intersection)
+                let isCompatible = false;
+                for (let day of cDays) {
+                    if (tDays.has(day)) {
+                        isCompatible = true;
+                        break;
+                    }
+                }
+
+                if (!isCompatible) continue; // Skip if they never run on the same day
 
                 let destStation = t.stops[t.stops.length - 1].station;
 
@@ -155,8 +173,10 @@ window.findTransfers = function(station, arrivalTime, currentTrainId) {
         }
     }
     
+    // Sort by soonest departure
     transfers.sort((a, b) => a.diff - b.diff);
 
+    // Deduplicate in case a train ID exists across multiple JSON structures
     let uniqueTransfers = [];
     let seen = new Set();
     for (let tr of transfers) {
