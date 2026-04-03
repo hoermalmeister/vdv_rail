@@ -125,7 +125,7 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     top: 160px; 
     right: 20px; 
     width: 360px; 
-    z-index: 5000; /* FIXED: Boosted massively to establish the highest stacking context */
+    z-index: 5000; 
 }
 
 .planner-mobile-btn {
@@ -174,11 +174,12 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 /* Mobile Layout Overrides */
 @media (max-width: 768px) {
     .planner-container {
-        top: 130px; /* FIXED: Increased from 110px to leave a clean gap above the button */
+        top: 130px; 
         right: 10px; 
         left: auto;
         width: 274px; 
-        z-index: 5000; /* Container must be higher than the backdrop */
+        /* FIXED: Set to auto so the button and modal can live on different layers */
+        z-index: auto; 
     }
     
     .planner-mobile-btn {
@@ -196,10 +197,13 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         backdrop-filter: blur(10px);
         cursor: pointer;
         box-sizing: border-box;
+        /* FIXED: Put the button safely beneath the dim backdrop */
+        position: relative;
+        z-index: 4000; 
     }
 
     .planner-box {
-        display: none; /* Hidden until button is clicked */
+        display: none; 
     }
 
     /* Activated Mobile Modal */
@@ -211,8 +215,9 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         transform: translate(-50%, -50%);
         width: 90%;
         max-width: 380px;
+        background: rgb(15, 23, 42); 
+        /* FIXED: Keep the modal above the backdrop */
         z-index: 5001; 
-        background: rgb(15, 23, 42); /* FIXED: Solid color so the backdrop doesn't bleed through the glassmorphism */
     }
 
     .planner-close-mobile {
@@ -231,6 +236,7 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
         background: rgba(0,0,0,0.6);
-        z-index: 4999; /* Sits beneath the container but above the map */
+        /* FIXED: Sits right between the button and the modal! */
+        z-index: 4999; 
     }
 }
