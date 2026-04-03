@@ -4,63 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VDV Vlakové linky</title>
+    
     <link rel="icon" type="image/svg+xml" href="icon.svg">
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-polylineoffset@1.1.1/leaflet.polylineoffset.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-
     <div id="map"></div>
 
     <div class="map-overlay">
         <h1>VDV Vlakové linky</h1>
         <p>Tloušťka čáry reprezentuje frekvenci. Najeďte na linku pro náhled, <b>kliknutím menu připnete</b> a zobrazíte vlaky.</p>
     </div>
-    
-    <div class="planner-overlay">
-        <h2>Vyhledávač spojení</h2>
-        <div class="planner-group">
-            <label>Odkud</label>
-            <input type="text" id="planner-from" class="planner-input" placeholder="Zadejte stanici..." autocomplete="off">
-        </div>
-        <div class="planner-group">
-            <label>Kam</label>
-            <input type="text" id="planner-to" class="planner-input" placeholder="Zadejte stanici..." autocomplete="off">
-        </div>
-        <div class="planner-row">
-            <div class="planner-group">
-                <label>Den</label>
-                <select id="planner-day" class="planner-input">
-                    <option value="1">Pondělí</option>
-                    <option value="2">Úterý</option>
-                    <option value="3">Středa</option>
-                    <option value="4">Čtvrtek</option>
-                    <option value="5">Pátek</option>
-                    <option value="6">Sobota</option>
-                    <option value="7">Neděle</option>
-                    <option value="0">Státní svátek</option>
-                </select>
-            </div>
-            <div class="planner-group">
-                <label>Čas</label>
-                <input type="time" id="planner-time" class="planner-input" value="08:00">
-            </div>
-        </div>
-        <button class="planner-btn" onclick="window.calculateRoute()">Vyhledat spojení</button>
-        
-        <div id="planner-results"></div>
-    </div>
 
-    <script src="js/app.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/transfers.js"></script>
-    <script src="js/planner.js"></script> <script src="js/timetable.js"></script>
-    
     <div id="mobile-modal" class="modal-overlay">
         <div id="mobile-modal-content" class="modal-box"></div>
     </div>
