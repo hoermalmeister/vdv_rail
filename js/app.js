@@ -30,9 +30,6 @@ window.timeToMins = function(timeStr) {
 // --- DATA INITIALIZATION ---
 async function loadMapData() {
     try {
-        const [stationsRes, routesRes, ttRes, notesRes] = await Promise.all([
-            fetch('stations.json'), fetch('routes.json'), fetch('timetables_master.json'), fetch('notes_dict.json')
-        // FIXED: Corrected the typo to 'transfer_logic.json'
         const [stationsRes, routesRes, ttRes, notesRes, transferLogicRes] = await Promise.all([
             fetch('stations.json'), 
             fetch('routes.json'), 
