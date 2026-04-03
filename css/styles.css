@@ -122,9 +122,9 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 /* Desktop Layout */
 .planner-container {
     position: absolute;
-    top: 140px; /* Sits right below the desktop map-overlay */
-    right: 20px; /* Perfectly aligned to the right */
-    width: 320px; /* Matches desktop map-overlay max-width */
+    top: 160px; /* 20px top + 127.5px height + 12.5px gap */
+    right: 20px; /* Aligned identically to map-overlay */
+    width: 360px; /* 320px width + 40px horizontal padding */
     z-index: 1000;
 }
 
@@ -134,8 +134,9 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 
 .planner-box {
     background: rgba(15, 23, 42, 0.95);
-    padding: 16px;
+    padding: 20px; /* Matches map-overlay padding */
     border-radius: 12px;
+    box-sizing: border-box; /* Keeps the box exactly 360px wide including padding */
     box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.1);
     backdrop-filter: blur(10px);
@@ -173,10 +174,10 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 /* Mobile Layout Overrides */
 @media (max-width: 768px) {
     .planner-container {
-        top: 110px; /* Sits right below the mobile title */
-        right: 10px; /* Aligned right to match mobile title */
+        top: 110px; /* Sits below the mobile title */
+        right: 10px; /* Matches mobile map-overlay alignment */
         left: auto;
-        width: 250px; /* Matches mobile map-overlay max-width */
+        width: 274px; /* 250px max-width + 24px padding to match mobile title box */
     }
     
     .planner-mobile-btn {
@@ -193,6 +194,7 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         text-align: left;
         backdrop-filter: blur(10px);
         cursor: pointer;
+        box-sizing: border-box;
     }
 
     .planner-box {
@@ -207,7 +209,7 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         left: 50%;
         transform: translate(-50%, -50%);
         width: 90%;
-        max-width: 400px;
+        max-width: 380px;
         z-index: 2000;
     }
 
