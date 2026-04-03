@@ -1,6 +1,15 @@
 window.plannerGraphEdges = {}; // Grouped by starting station for hyper-fast searching
 
-const DAYS_MAP = { "Pondělí": 1, "Úterý": 2, "Středa": 3, "Čtvrtek": 4, "Pátek": 5, "Sobota": 6, "Neděle": 7 };
+const DAYS_MAP = { 
+    "Pondělí": 1, 
+    "Úterý": 2, 
+    "Středa": 3, 
+    "Čtvrtek": 4, 
+    "Pátek": 5, 
+    "Sobota": 6, 
+    "Neděle": 7, 
+    "Státní svátek": 0  // FIXED: Now perfectly matches your JSON logic
+};
 
 // Gets line name and color for the UI
 function getPlannerLineData(trainId) {
@@ -32,7 +41,7 @@ function buildPlannerGraph() {
             let opNotes = (t.notes || []).filter(n => window.transferLogicData[n]);
             let days = new Set();
             if (opNotes.length === 0) {
-                [1,2,3,4,5,6,7].forEach(d => days.add(d)); // No notes = runs daily
+                [0,1,2,3,4,5,6,7].forEach(d => days.add(d)); // No notes = runs daily
             } else {
                 opNotes.forEach(n => {
                     (window.transferLogicData[n] || []).forEach(d => days.add(parseInt(d)));
