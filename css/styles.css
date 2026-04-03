@@ -172,12 +172,14 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
 
 /* Mobile Layout Overrides */
 @media (max-width: 768px) {
-    .planner-container {
-        top: 130px; /* Sits right below the mobile title */
-        left: 10px;
-        right: 10px;
-        width: auto;
-    }
+/* Desktop Layout */
+.planner-container {
+    position: absolute;
+    top: 150px; /* Adjust this slightly if your title box is taller/shorter */
+    right: 20px; /* FIXED: Moved from left to right */
+    width: 320px;
+    z-index: 1000;
+}
     
     .planner-mobile-btn {
         display: block;
