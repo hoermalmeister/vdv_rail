@@ -9,12 +9,13 @@ window.initializeMap = function() {
         document.body.insertBefore(mapDiv, document.body.firstChild);
     }
 
-    // 2. CLEANUP: Destroy any ghost maps from Live Server refreshing
-    if (window.map != undefined) {
+    // 2. CLEANUP: Destroy ghost maps, ensuring it's an actual Leaflet object first!
+    if (window.map && typeof window.map.remove === 'function' && window.map._leaflet_id) {
         window.map.off();
         window.map.remove();
-        window.map = null;
     }
+    // Wipe the variable clean just in case it was clinging to the HTML element
+    window.map = null; 
 
     // 3. Initialize the map safely
     const map = L.map('map').setView([49.4, 15.6], 9);
