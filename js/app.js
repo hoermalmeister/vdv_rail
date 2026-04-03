@@ -54,4 +54,9 @@ async function loadMapData() {
     }
 }
 
-loadMapData();
+// Wait for the HTML to fully load before fetching data and drawing the map
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadMapData);
+} else {
+    loadMapData();
+}
