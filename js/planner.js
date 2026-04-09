@@ -86,37 +86,40 @@ document.addEventListener('mousedown', function(e) {
 
 // --- NOVINKA: PŘESNÉ KROKOVÁNÍ POMOCÍ "changeAt" ---
 function processTrainLinesByChangeAt(tId, stops) {
-    // Najdeme všechny linky, které tento vlak vůbec operují
     let matchedRoutes = window.routesData ? window.routesData.filter(r => r.trainNames && r.trainNames.includes(tId)) : [];
 
-    // Záložní plány pro jednoduché vlaky
-    if (matchedRoutes.length === 0) {
-        return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
-    }
-    if (matchedRoutes.length === 1) {
-        let r = matchedRoutes[0];
-        let c = window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8";
-        return stops.map(() => ({ name: r.lineName, color: c }));
+    // DIAGNOSTIKA
+    if (tId.includes("5904") || tId.includes("KOLÍN")) { // Přizpůsobte číslo vlaku, který zkoušíte!
+        console.log(`[DEBUG] Zkoumám vlak: ${tId}`);
+        console.log(`[DEBUG] Z routes.json jsem pro tento vlak našel linky:`, matchedRoutes);
     }
 
-    // Vlak mění linky! Najdeme výchozí linku (ta, která nemá changeAt, nebo prostě první v seznamu)
+    if (matchedRoutes.length === 0) return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
+    if (matchedRoutes.length === 1) {
+        let r = matchedRoutes[0];
+        return stops.map(() => ({ name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" }));
+    }
+
     let activeRoute = matchedRoutes.find(r => !r.changeAt) || matchedRoutes[0];
     let segmentLines = [];
 
-    // Procházíme zastávku po zastávce přesně tak, jak jede vlak
     for (let i = 0; i < stops.length - 1; i++) {
-        let st1 = stops[i].station; // Stanice, ze které právě odjíždíme
+        let st1 = stops[i].station; 
 
-        // DŮLEŽITÉ: Kontrola, zda některá linka nehlásí "tady nastupuju já!"
         let changingRoute = matchedRoutes.find(r => 
             r.changeAt === st1 || (Array.isArray(r.changeAt) && r.changeAt.includes(st1))
         );
 
-        if (changingRoute) {
-            activeRoute = changingRoute; // Přepnutí linky
+        // DIAGNOSTIKA
+        if (tId.includes("5904")) {
+            console.log(`[DEBUG] Jedu přes stanici: "${st1}"`);
+            if (changingRoute) console.log(`[DEBUG] ---> BINGO! V této stanici měním na linku:`, changingRoute.lineName);
         }
 
-        // Uložíme si linku PŘESNĚ pro tento jeden úsek
+        if (changingRoute) {
+            activeRoute = changingRoute; 
+        }
+
         segmentLines.push({
             name: activeRoute.lineName,
             color: window.lineColorsDict?.[activeRoute.lineName] || activeRoute.color || "#94a3b8"
