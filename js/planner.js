@@ -84,7 +84,7 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- PŘESNÉ KROKOVÁNÍ POMOCÍ "changeAt" ---
+// --- ČTENÍ LINEK PŘESNĚ PODLE VAŠEHO JSON FORMÁTU ---
 function processTrainLinesByChangeAt(tId, stops) {
     let matchedRoutes = window.routesData ? window.routesData.filter(r => r.trainNames && r.trainNames.includes(tId)) : [];
 
@@ -92,31 +92,41 @@ function processTrainLinesByChangeAt(tId, stops) {
         return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
     }
 
-    // Najde výchozí linku (ta, která NEMÁ vyplněné changeAt)
-    let activeRoute = matchedRoutes.find(r => !r.changeAt) || matchedRoutes[0];
+    // Vezmeme první (hlavní) definici trasy pro tento vlak z routes.json
+    let routeDef = matchedRoutes[0];
     let segmentLines = [];
+    
+    // Nastavíme výchozí stav podle první poloviny cesty
+    let currentLineName = routeDef.lineName;
+    let currentLineColor = window.lineColorsDict?.[routeDef.lineName] || routeDef.color || "#94a3b8";
 
+    // Procházíme zastávku po zastávce
     for (let i = 0; i < stops.length - 1; i++) {
         let st1 = stops[i].station; 
 
-        // Zjistíme, jestli nějaká linka nehlásí, že odsud přebírá štafetu
-        let changingRoute = matchedRoutes.find(r => {
-            if (!r.changeAt) return false;
-            // Odstranění diakritiky a mezer zaručí, že se to vždy trefí
+        // Pokud vlak hlásí, že má změnu, zkontrolujeme, jestli jsme právě dojeli do té dělící stanice
+        if (routeDef.changeAt) {
             let cleanSt1 = window.removeDiacritics(st1).toLowerCase().trim();
-            if (Array.isArray(r.changeAt)) {
-                return r.changeAt.some(c => window.removeDiacritics(c).toLowerCase().trim() === cleanSt1);
+            
+            // Podpora pro string i array (kdyby náhodou vlak měnil linku na více místech)
+            let isChangingHere = false;
+            if (Array.isArray(routeDef.changeAt)) {
+                isChangingHere = routeDef.changeAt.some(c => window.removeDiacritics(c).toLowerCase().trim() === cleanSt1);
+            } else {
+                isChangingHere = window.removeDiacritics(routeDef.changeAt).toLowerCase().trim() === cleanSt1;
             }
-            return window.removeDiacritics(r.changeAt).toLowerCase().trim() === cleanSt1;
-        });
 
-        if (changingRoute) {
-            activeRoute = changingRoute; 
+            // BINGO! Přijeli jsme do uzlu, kde se mění označení
+            if (isChangingHere) {
+                currentLineName = routeDef.changesTo || currentLineName;
+                currentLineColor = routeDef.changeColor || window.lineColorsDict?.[currentLineName] || currentLineColor;
+            }
         }
 
+        // Zápis linky pro aktuální úsek trasy
         segmentLines.push({
-            name: activeRoute.lineName || "Vlak",
-            color: window.lineColorsDict?.[activeRoute.lineName] || activeRoute.color || "#94a3b8"
+            name: currentLineName || "Vlak",
+            color: currentLineColor
         });
     }
 
@@ -124,7 +134,6 @@ function processTrainLinesByChangeAt(tId, stops) {
 }
 
 function buildPlannerGraph() {
-    // ODSTRANĚNO CACHOVÁNÍ! Graf se nyní staví VŽDY s absolutně čerstvými daty.
     window.plannerGraphEdges = {}; 
     const WEEK_MINS = 7 * 1440;
 
@@ -150,6 +159,7 @@ function buildPlannerGraph() {
                 });
             }
 
+            // Tady se provede kompletní naskenování vlaku a jeho barev!
             let segmentLinesArray = processTrainLinesByChangeAt(tId, t.stops);
 
             days.forEach(day => {
@@ -285,7 +295,6 @@ window.runPlannerSearch = function() {
                         currentRide.endSt = edge.to;
                         currentRide.arrStr = edge.arrStr;
                         
-                        // Neprůstřelná kontrola stringů! (Oříznutí mezer)
                         let lastLineObj = currentRide.lines[currentRide.lines.length - 1];
                         if (String(lastLineObj.name).trim() !== String(edge.lineName).trim()) {
                             currentRide.lines.push({ name: edge.lineName, color: edge.color });
@@ -304,7 +313,6 @@ window.runPlannerSearch = function() {
         }
     }
 
-    console.log("=== FINÁLNÍ TRASA ===", foundPath);
     renderPlannerResult(foundPath, from, to);
 };
 
@@ -330,7 +338,7 @@ function renderPlannerResult(result, startSt, endSt) {
         
         let linesHtml = ride.lines.map(l => {
             let textColor = window.getContrastColor ? window.getContrastColor(l.color) : '#fff';
-            return `<span class="line-badge" style="background-color: ${l.color}; color: ${textColor}; font-size: 11px;">${l.name}</span>`;
+            return `<span class="line-badge" style="background-color: ${l.color}; color: ${textColor}; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${l.name}</span>`;
         }).join('<span style="color: #94a3b8; font-size: 10px; margin: 0 4px;">➔</span>');
 
         html += `<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
