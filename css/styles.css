@@ -44,7 +44,7 @@ body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color
 .legend-stops { font-size: 11px; color: #cbd5e1; white-space: nowrap; font-weight: 600;}
 
 /* Mobile Segment Modal */
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 3000; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 6000; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
 .modal-box { background: rgba(25, 30, 36, 0.98); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; width: 90%; max-width: 380px; padding: 20px; color: #f1f5f9; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px; }
 .modal-header h3 { margin: 0; font-size: 16px; color: white;}
@@ -58,7 +58,7 @@ body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color
 .modal-line-btn span.btn-text { font-size: 13px; color: #cbd5e1; font-family: 'Inter', sans-serif;}
 
 /* --- TIMETABLE MODAL UI --- */
-.timetable-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+.timetable-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 6001; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .timetable-box { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; width: 95%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
 .timetable-header { padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: #1e293b; border-radius: 12px 12px 0 0; flex-shrink: 0; }
 .timetable-header h2 { margin: 0; font-size: 20px; color: white; display: flex; align-items: center; gap: 12px; }
