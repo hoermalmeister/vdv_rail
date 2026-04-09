@@ -84,17 +84,15 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- DETEKCE LINEK DLE ÚSEKU (OPRAVA ZMĚNY ČÍSLA LINKY) ---
+// --- DETEKCE LINEK DLE ÚSEKU ---
 function getEdgeLineData(trainId, st1Name, st2Name) {
     if (!window.routesData) return { name: "Vlak", color: "#94a3b8" };
     
-    // Nejprve hledá linku, která obsahuje daný vlak A ZÁROVEŇ tento konkrétní úsek (stanice)
     let matchedRoute = window.routesData.find(r => 
         r.trainNames && r.trainNames.includes(trainId) &&
         r.stations && r.stations.includes(st1Name) && r.stations.includes(st2Name)
     );
     
-    // Záložní plán
     if (!matchedRoute) {
         matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
     }
@@ -180,7 +178,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- PARETO-DIJKSTRA ALGORITMUS (SPRÁVNÉ TRASOVÁNÍ) ---
+// --- NOVÝ ALGORITMUS (1 JÍZDA = 1 BLOK) ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -198,9 +196,7 @@ window.runPlannerSearch = function() {
     
     let userAbsTime = (dayNum - 1) * 1440 + userMins;
 
-    let queue = [{ st: from, arrTime: userAbsTime, cost: 0, path: [], lastTrain: null, lastLine: null }];
-    
-    // Pareto profily brání tomu, aby rychlý drahý spoj smazal levný pomalý spoj
+    let queue = [{ st: from, arrTime: userAbsTime, cost: 0, path: [], lastTrain: null }];
     let bestProfiles = { [from]: [{ cost: 0, arrTime: userAbsTime }] };
     let foundPath = null;
     let loops = 0;
@@ -228,25 +224,20 @@ window.runPlannerSearch = function() {
                 
                 let costPenalty = 0;
                 if (curr.path.length === 0) {
-                    // Čekání na startu je v pořádku (lepší jet později z domova)
                     costPenalty = (waitTime * 0.5) + travelTime;
                 } else if (isTransfer) {
-                    // Tvrdý přestup bolí a stát na nádraží je otravné
                     costPenalty = (waitTime * 1.5) + travelTime + 20;
                 } else {
-                    // OPRAVA BĚHU: Čekání uvnitř stejného vlaku je prostě jen normální čas cesty!
                     costPenalty = waitTime + travelTime;
                 }
 
                 let nextCost = curr.cost + costPenalty;
                 
-                // Kontrola Pareto dominance (zabrání zahození šikovných spojů)
                 let profiles = bestProfiles[edge.to] || [];
                 let dominated = false;
                 for (let p of profiles) {
                     if (p.cost <= nextCost && p.arrTime <= edge.absArr) {
-                        dominated = true;
-                        break;
+                        dominated = true; break;
                     }
                 }
 
@@ -254,29 +245,30 @@ window.runPlannerSearch = function() {
                     bestProfiles[edge.to] = profiles.filter(p => !(nextCost <= p.cost && edge.absArr <= p.arrTime));
                     bestProfiles[edge.to].push({ cost: nextCost, arrTime: edge.absArr });
 
-                    let newPath = [...curr.path];
-                    let isLineChange = curr.lastLine && curr.lastLine !== edge.lineName;
-                    
-                    // Vizuální oddělení (Board leg) vzniká při fyzickém přestupu NEBO změně označení
-                    let isNewLeg = isTransfer || isLineChange || curr.path.length === 0;
+                    // BEZPEČNÁ HLUBOKÁ KOPIE (zabrání přepisování větví)
+                    let newPath = curr.path.map(ride => ({ ...ride, lines: [...ride.lines] }));
 
-                    if (isNewLeg) {
+                    if (isTransfer || newPath.length === 0) {
+                        // Vytvoří novou jízdu (1 fyzický vlak)
                         newPath.push({ 
-                            type: 'board', 
-                            st: curr.st, 
-                            train: edge.trainId, 
-                            line: edge.lineName, 
-                            color: edge.color, 
-                            time: edge.depStr,
-                            isRealTransfer: isTransfer // Důležité pro vykreslování "Zůstaňte ve vlaku"
+                            trainId: edge.trainId, 
+                            startSt: curr.st, 
+                            endSt: edge.to, 
+                            depStr: edge.depStr, 
+                            arrStr: edge.arrStr,
+                            lines: [{ name: edge.lineName, color: edge.color }] 
                         });
-                    }
-                    
-                    let alightLeg = { type: 'alight', st: edge.to, train: edge.trainId, line: edge.lineName, color: edge.color, time: edge.arrStr };
-                    if (newPath.length > 0 && newPath[newPath.length - 1].type === 'alight') {
-                        newPath[newPath.length - 1] = alightLeg; 
                     } else {
-                        newPath.push(alightLeg);
+                        // Pokračujeme ve stejném vlaku (upravíme konečnou stanici a čas)
+                        let currentRide = newPath[newPath.length - 1];
+                        currentRide.endSt = edge.to;
+                        currentRide.arrStr = edge.arrStr;
+                        
+                        // Zkontroluje, jestli se nezměnila linka. Pokud ano, přidá ji na seznam linek tohoto vlaku
+                        let lastLine = currentRide.lines[currentRide.lines.length - 1];
+                        if (lastLine.name !== edge.lineName) {
+                            currentRide.lines.push({ name: edge.lineName, color: edge.color });
+                        }
                     }
 
                     queue.push({
@@ -284,8 +276,7 @@ window.runPlannerSearch = function() {
                         arrTime: edge.absArr,
                         cost: nextCost,
                         path: newPath,
-                        lastTrain: edge.trainId,
-                        lastLine: edge.lineName
+                        lastTrain: edge.trainId
                     });
                 }
             }
@@ -295,6 +286,7 @@ window.runPlannerSearch = function() {
     renderPlannerResult(foundPath, from, to);
 };
 
+// --- ČISTÝ VYKRESLOVAČ ---
 function renderPlannerResult(result, startSt, endSt) {
     const resultsContainer = document.getElementById('planner-results');
     const formContainer = document.getElementById('planner-form');
@@ -312,40 +304,33 @@ function renderPlannerResult(result, startSt, endSt) {
     </div>
     <div style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 4px;">`;
 
-    let boardLeg = null;
+    // Nyní iterujeme čistě po jednotlivých JÍZDÁCH (jeden vlak = jeden blok)
+    result.path.forEach((ride, i) => {
+        
+        // Vykreslí všechny linky, kterými tento vlak za naši jízdu prošel
+        let linesHtml = ride.lines.map(l => {
+            let textColor = window.getContrastColor ? window.getContrastColor(l.color) : '#fff';
+            return `<span style="background-color: ${l.color}; color: ${textColor}; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${l.name}</span>`;
+        }).join('<span style="color: #94a3b8; font-size: 10px; margin: 0 4px;">➔</span>');
 
-    result.path.forEach((leg, i) => {
-        if (leg.type === 'board') {
-            boardLeg = leg;
-        } else if (leg.type === 'alight' && boardLeg) {
-            let textColor = window.getContrastColor ? window.getContrastColor(boardLeg.color) : '#fff';
-            
-            html += `<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span class="line-badge" style="background-color: ${boardLeg.color}; color: ${textColor}; font-size: 11px;">${boardLeg.line}</span>
-                    <span style="font-size: 11px; font-weight: 700; color: #38bdf8; cursor: pointer;" onclick="window.openSingleTrain('${boardLeg.train}')">${boardLeg.train}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #e2e8f0; margin-bottom: 4px;">
-                    <span>${boardLeg.st}</span>
-                    <span style="font-family: monospace; font-weight: 600;">${boardLeg.time}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
-                    <span>➔ ${leg.st}</span>
-                    <span style="font-family: monospace;">${leg.time}</span>
-                </div>
-            </div>`;
-            
-            if (i < result.path.length - 1) {
-                let nextBoard = result.path[i+1];
-                if (nextBoard && nextBoard.type === 'board') {
-                    if (nextBoard.isRealTransfer !== false) {
-                        html += `<div style="text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">▼ Přestup ▼</div>`;
-                    } else {
-                        html += `<div style="text-align: center; font-size: 10px; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">▼ Změna označení (Zůstaňte ve vlaku) ▼</div>`;
-                    }
-                }
-            }
-            boardLeg = null;
+        html += `<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center;">${linesHtml}</div>
+                <span style="font-size: 11px; font-weight: 700; color: #38bdf8; cursor: pointer;" onclick="window.openSingleTrain('${ride.trainId}')">${ride.trainId}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #e2e8f0; margin-bottom: 4px;">
+                <span>${ride.startSt}</span>
+                <span style="font-family: monospace; font-weight: 600;">${ride.depStr}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+                <span>➔ ${ride.endSt}</span>
+                <span style="font-family: monospace;">${ride.arrStr}</span>
+            </div>
+        </div>`;
+        
+        // Přestup se objeví jen a pouze tehdy, když se fakticky mění vlakové ID
+        if (i < result.path.length - 1) {
+            html += `<div style="text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">▼ Přestup ▼</div>`;
         }
     });
 
