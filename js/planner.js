@@ -12,32 +12,6 @@ window.removeDiacritics = function(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-// --- AUTOMATICKÉ SKRÝVÁNÍ VYHLEDÁVAČE BĚHEM MODALŮ ---
-document.addEventListener('DOMContentLoaded', () => {
-    function togglePlanner(show) {
-        const p = document.querySelector('.planner-container');
-        if (p) p.style.display = show ? '' : 'none';
-    }
-
-    const origOpenTT = window.openTimetable;
-    window.openTimetable = function(...args) { togglePlanner(false); if(origOpenTT) origOpenTT(...args); };
-
-    const origOpenTrain = window.openSingleTrain;
-    window.openSingleTrain = function(...args) { togglePlanner(false); if(origOpenTrain) origOpenTrain(...args); };
-
-    const origCloseTT = window.closeTimetable;
-    window.closeTimetable = function(...args) { togglePlanner(true); if(origCloseTT) origCloseTT(...args); };
-
-    const origOpenMob = window.openMobileModal;
-    window.openMobileModal = function(...args) { togglePlanner(false); if(origOpenMob) origOpenMob(...args); };
-
-    const origShowMob = window.showMobileDetails;
-    window.showMobileDetails = function(...args) { togglePlanner(false); if(origShowMob) origShowMob(...args); };
-
-    const origCloseMob = window.closeModal;
-    window.closeModal = function(...args) { togglePlanner(true); if(origCloseMob) origCloseMob(...args); };
-});
-
 // --- VYLEPŠENÝ NAŠEPTÁVAČ ---
 window.populateStationList = function() {
     if (window.allStationsList.length > 0) return;
@@ -114,13 +88,11 @@ document.addEventListener('mousedown', function(e) {
 function getEdgeLineData(trainId, st1Name, st2Name) {
     if (!window.routesData) return { name: "Vlak", color: "#94a3b8" };
     
-    // Nejprve hledá linku, která obsahuje daný vlak A ZÁROVEŇ obě stanice
     let matchedRoute = window.routesData.find(r => 
         r.trainNames && r.trainNames.includes(trainId) &&
         r.stations && r.stations.includes(st1Name) && r.stations.includes(st2Name)
     );
     
-    // Nouzovka: pokud nenajde přesný úsek, vezme první linku tohoto vlaku
     if (!matchedRoute) {
         matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
     }
@@ -182,7 +154,6 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
-                        // OPRAVA 2: Barva a jméno linky se určuje specificky pro tento mezistaniční úsek!
                         let lineData = getEdgeLineData(tId, st1.station, st2.station);
 
                         if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
@@ -207,7 +178,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- OPRAVA 1: PARETO ROUTING (Chytré vyhledávání) ---
+// --- ZCELA NOVÝ "COMFORT-COST" ROUTING ALGORITMUS ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -225,52 +196,44 @@ window.runPlannerSearch = function() {
     
     let userAbsTime = (dayNum - 1) * 1440 + userMins;
 
-    // Fronta nyní hlídá i "originDep" - reálný čas, kdy jsme opustili první stanici
-    let queue = [{ st: from, time: userAbsTime, path: [], lastTrain: null, originDep: null, transfers: 0 }];
-    
-    // Profil zastávky = hlídáme, abychom nešli horší cestou. Ale povolíme pozdější odjezd, pokud je rychlejší!
-    let bestProfiles = { [from]: [{ arr: userAbsTime, dep: userAbsTime, transfers: 0 }] };
-    let validPaths = [];
+    // Dijkstra řízená čistě uživatelským komfortem (cost)
+    let queue = [{ st: from, arrTime: userAbsTime, cost: 0, path: [], lastTrain: null }];
+    let bestCost = { [from]: 0 };
+    let foundPath = null;
 
     let loops = 0;
     while (queue.length > 0 && loops < 100000) {
-        queue.sort((a,b) => a.time - b.time); 
+        // Vždy prohledáváme nejprve cestu, která má aktuálně nejmenší nasbírané skóre diskomfortu
+        queue.sort((a,b) => a.cost - b.cost); 
         let curr = queue.shift();
         loops++;
 
         if (curr.st === to) {
-            validPaths.push(curr);
-            if (validPaths.length > 20) break; // Zastaví hledání, když má dostatek dobrých variant
-            continue; 
+            foundPath = curr; // Díky třídění víme, že první dosažení cíle je to absolutně nejpohodlnější
+            break; 
         }
 
         let edges = window.plannerGraphEdges[curr.st] || [];
         for (let edge of edges) {
             let isTransfer = curr.lastTrain && curr.lastTrain !== edge.trainId;
             let penalty = isTransfer ? 5 : 0;
-            let canBoardTime = curr.time + penalty;
+            let canBoardTime = curr.arrTime + penalty;
 
-            // Omezení čekání max na 12 hodin, ať se nehledá nesmyslně dlouho
+            // Omezení nesmyslně dlouhého čekání (max 12 hodin)
             if (edge.absDep >= canBoardTime && edge.absDep <= canBoardTime + 720) {
-                let nextAbsArr = edge.absArr;
-                let nextOriginDep = curr.originDep === null ? edge.absDep : curr.originDep;
-                let nextTransfers = curr.transfers + (isTransfer ? 1 : 0);
                 
-                let profiles = bestProfiles[edge.to] || [];
-                let dominated = false;
+                let travelTime = edge.absArr - edge.absDep;
+                let waitTime = edge.absDep - curr.arrTime;
                 
-                // Zkontrolujeme, jestli už na zastávku nevede striktně lepší cesta
-                for (let p of profiles) {
-                    if (p.arr <= nextAbsArr && p.dep >= nextOriginDep && p.transfers <= nextTransfers) {
-                        dominated = true;
-                        break;
-                    }
-                }
+                // BODUJE KOMFORT CESTUJÍCÍHO:
+                // Čekání na výchozí stanici (doma) je levné. Čekání na přestupu je drahé.
+                let waitPenalty = (curr.st === from && curr.path.length === 0) ? (waitTime * 0.2) : (waitTime * 1.5);
+                let transferPenalty = isTransfer ? 30 : 0; // Přestup bolí jako 30 minut cesty navíc
 
-                if (!dominated) {
-                    // Odstraní starší profily, které tato nová cesta právě překonala
-                    bestProfiles[edge.to] = profiles.filter(p => !(nextAbsArr <= p.arr && nextOriginDep >= p.dep && nextTransfers <= p.transfers));
-                    bestProfiles[edge.to].push({ arr: nextAbsArr, dep: nextOriginDep, transfers: nextTransfers });
+                let nextCost = curr.cost + travelTime + waitPenalty + transferPenalty;
+                
+                if (!bestCost[edge.to] || nextCost < bestCost[edge.to]) {
+                    bestCost[edge.to] = nextCost;
 
                     let newPath = [...curr.path];
                     if (isTransfer || curr.path.length === 0) {
@@ -286,35 +249,17 @@ window.runPlannerSearch = function() {
 
                     queue.push({
                         st: edge.to,
-                        time: nextAbsArr,
+                        arrTime: edge.absArr,
+                        cost: nextCost, // Skóre diskomfortu
                         path: newPath,
-                        lastTrain: edge.trainId,
-                        originDep: nextOriginDep,
-                        transfers: nextTransfers
+                        lastTrain: edge.trainId
                     });
                 }
             }
         }
     }
 
-    if (validPaths.length === 0) {
-        renderPlannerResult(null, from, to);
-        return;
-    }
-
-    // Vybere to ABSOLUTNĚ nejlepší spojení z nalezených
-    validPaths.sort((a, b) => {
-        let durationA = a.time - a.originDep;
-        let durationB = b.time - b.originDep;
-        
-        // Bodovací systém: 1 minuta jízdy = 1 bod. 1 minuta čekání doma = 0.5 bodu. Přestup = 20 bodů penalizace.
-        let costA = durationA + ((a.originDep - userAbsTime) * 0.5) + (a.transfers * 20);
-        let costB = durationB + ((b.originDep - userAbsTime) * 0.5) + (b.transfers * 20);
-        
-        return costA - costB;
-    });
-
-    renderPlannerResult(validPaths[0], from, to);
+    renderPlannerResult(foundPath, from, to);
 };
 
 function renderPlannerResult(result, startSt, endSt) {
