@@ -12,7 +12,7 @@ window.removeDiacritics = function(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-// --- VYLEPŠENÝ NAŠEPTÁVAČ ---
+// --- NAŠEPTÁVAČ ---
 window.populateStationList = function() {
     if (window.allStationsList.length > 0) return;
     let stationSet = new Set();
@@ -84,15 +84,17 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- VYLEPŠENÉ JÁDRO: DETEKCE LINEK DLE ÚSEKU ---
+// --- DETEKCE LINEK DLE ÚSEKU (OPRAVA ZMĚNY ČÍSLA LINKY) ---
 function getEdgeLineData(trainId, st1Name, st2Name) {
     if (!window.routesData) return { name: "Vlak", color: "#94a3b8" };
     
+    // Nejprve hledá linku, která obsahuje daný vlak A ZÁROVEŇ tento konkrétní úsek (stanice)
     let matchedRoute = window.routesData.find(r => 
         r.trainNames && r.trainNames.includes(trainId) &&
         r.stations && r.stations.includes(st1Name) && r.stations.includes(st2Name)
     );
     
+    // Záložní plán
     if (!matchedRoute) {
         matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
     }
@@ -178,7 +180,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- ZCELA NOVÝ "COMFORT-COST" ROUTING ALGORITMUS ---
+// --- PARETO-DIJKSTRA ALGORITMUS (SPRÁVNÉ TRASOVÁNÍ) ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -196,48 +198,78 @@ window.runPlannerSearch = function() {
     
     let userAbsTime = (dayNum - 1) * 1440 + userMins;
 
-    // Dijkstra řízená čistě uživatelským komfortem (cost)
-    let queue = [{ st: from, arrTime: userAbsTime, cost: 0, path: [], lastTrain: null }];
-    let bestCost = { [from]: 0 };
+    let queue = [{ st: from, arrTime: userAbsTime, cost: 0, path: [], lastTrain: null, lastLine: null }];
+    
+    // Pareto profily brání tomu, aby rychlý drahý spoj smazal levný pomalý spoj
+    let bestProfiles = { [from]: [{ cost: 0, arrTime: userAbsTime }] };
     let foundPath = null;
-
     let loops = 0;
-    while (queue.length > 0 && loops < 100000) {
-        // Vždy prohledáváme nejprve cestu, která má aktuálně nejmenší nasbírané skóre diskomfortu
+
+    while (queue.length > 0 && loops < 150000) {
         queue.sort((a,b) => a.cost - b.cost); 
         let curr = queue.shift();
         loops++;
 
         if (curr.st === to) {
-            foundPath = curr; // Díky třídění víme, že první dosažení cíle je to absolutně nejpohodlnější
+            foundPath = curr; 
             break; 
         }
 
         let edges = window.plannerGraphEdges[curr.st] || [];
         for (let edge of edges) {
             let isTransfer = curr.lastTrain && curr.lastTrain !== edge.trainId;
-            let penalty = isTransfer ? 5 : 0;
-            let canBoardTime = curr.arrTime + penalty;
+            let penaltyTime = isTransfer ? 5 : 0;
+            let canBoardTime = curr.arrTime + penaltyTime;
 
-            // Omezení nesmyslně dlouhého čekání (max 12 hodin)
             if (edge.absDep >= canBoardTime && edge.absDep <= canBoardTime + 720) {
                 
                 let travelTime = edge.absArr - edge.absDep;
                 let waitTime = edge.absDep - curr.arrTime;
                 
-                // BODUJE KOMFORT CESTUJÍCÍHO:
-                // Čekání na výchozí stanici (doma) je levné. Čekání na přestupu je drahé.
-                let waitPenalty = (curr.st === from && curr.path.length === 0) ? (waitTime * 0.2) : (waitTime * 1.5);
-                let transferPenalty = isTransfer ? 30 : 0; // Přestup bolí jako 30 minut cesty navíc
+                let costPenalty = 0;
+                if (curr.path.length === 0) {
+                    // Čekání na startu je v pořádku (lepší jet později z domova)
+                    costPenalty = (waitTime * 0.5) + travelTime;
+                } else if (isTransfer) {
+                    // Tvrdý přestup bolí a stát na nádraží je otravné
+                    costPenalty = (waitTime * 1.5) + travelTime + 20;
+                } else {
+                    // OPRAVA BĚHU: Čekání uvnitř stejného vlaku je prostě jen normální čas cesty!
+                    costPenalty = waitTime + travelTime;
+                }
 
-                let nextCost = curr.cost + travelTime + waitPenalty + transferPenalty;
+                let nextCost = curr.cost + costPenalty;
                 
-                if (!bestCost[edge.to] || nextCost < bestCost[edge.to]) {
-                    bestCost[edge.to] = nextCost;
+                // Kontrola Pareto dominance (zabrání zahození šikovných spojů)
+                let profiles = bestProfiles[edge.to] || [];
+                let dominated = false;
+                for (let p of profiles) {
+                    if (p.cost <= nextCost && p.arrTime <= edge.absArr) {
+                        dominated = true;
+                        break;
+                    }
+                }
+
+                if (!dominated) {
+                    bestProfiles[edge.to] = profiles.filter(p => !(nextCost <= p.cost && edge.absArr <= p.arrTime));
+                    bestProfiles[edge.to].push({ cost: nextCost, arrTime: edge.absArr });
 
                     let newPath = [...curr.path];
-                    if (isTransfer || curr.path.length === 0) {
-                        newPath.push({ type: 'board', st: curr.st, train: edge.trainId, line: edge.lineName, color: edge.color, time: edge.depStr });
+                    let isLineChange = curr.lastLine && curr.lastLine !== edge.lineName;
+                    
+                    // Vizuální oddělení (Board leg) vzniká při fyzickém přestupu NEBO změně označení
+                    let isNewLeg = isTransfer || isLineChange || curr.path.length === 0;
+
+                    if (isNewLeg) {
+                        newPath.push({ 
+                            type: 'board', 
+                            st: curr.st, 
+                            train: edge.trainId, 
+                            line: edge.lineName, 
+                            color: edge.color, 
+                            time: edge.depStr,
+                            isRealTransfer: isTransfer // Důležité pro vykreslování "Zůstaňte ve vlaku"
+                        });
                     }
                     
                     let alightLeg = { type: 'alight', st: edge.to, train: edge.trainId, line: edge.lineName, color: edge.color, time: edge.arrStr };
@@ -250,9 +282,10 @@ window.runPlannerSearch = function() {
                     queue.push({
                         st: edge.to,
                         arrTime: edge.absArr,
-                        cost: nextCost, // Skóre diskomfortu
+                        cost: nextCost,
                         path: newPath,
-                        lastTrain: edge.trainId
+                        lastTrain: edge.trainId,
+                        lastLine: edge.lineName
                     });
                 }
             }
@@ -303,7 +336,14 @@ function renderPlannerResult(result, startSt, endSt) {
             </div>`;
             
             if (i < result.path.length - 1) {
-                html += `<div style="text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">▼ Přestup ▼</div>`;
+                let nextBoard = result.path[i+1];
+                if (nextBoard && nextBoard.type === 'board') {
+                    if (nextBoard.isRealTransfer !== false) {
+                        html += `<div style="text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">▼ Přestup ▼</div>`;
+                    } else {
+                        html += `<div style="text-align: center; font-size: 10px; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">▼ Změna označení (Zůstaňte ve vlaku) ▼</div>`;
+                    }
+                }
             }
             boardLeg = null;
         }
