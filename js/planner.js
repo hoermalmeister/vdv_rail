@@ -1,28 +1,123 @@
-window.plannerGraphEdges = {}; // Grouped by starting station for hyper-fast searching
+window.plannerGraphEdges = {}; 
+window.allStationsList = []; // Master list for autocomplete
 
 const DAYS_MAP = { 
-    "Pondělí": 1, 
-    "Úterý": 2, 
-    "Středa": 3, 
-    "Čtvrtek": 4, 
-    "Pátek": 5, 
-    "Sobota": 6, 
-    "Neděle": 7, 
-    "Státní svátek": 0  // FIXED: Now perfectly matches your JSON logic
+    "Pondělí": 1, "Úterý": 2, "Středa": 3, "Čtvrtek": 4, 
+    "Pátek": 5, "Sobota": 6, "Neděle": 7, 
+    "Státní svátek": 0 
 };
 
-// Gets line name and color for the UI
+// --- AUTOMATICKÉ SKRÝVÁNÍ VYHLEDÁVAČE BĚHEM MODALŮ ---
+document.addEventListener('DOMContentLoaded', () => {
+    function togglePlanner(show) {
+        const p = document.querySelector('.planner-container');
+        if (p) p.style.display = show ? '' : 'none';
+    }
+
+    // "Zavěsíme" se na existující funkce bez nutnosti měnit ostatní soubory
+    const origOpenTT = window.openTimetable;
+    window.openTimetable = function(...args) { togglePlanner(false); if(origOpenTT) origOpenTT(...args); };
+
+    const origOpenTrain = window.openSingleTrain;
+    window.openSingleTrain = function(...args) { togglePlanner(false); if(origOpenTrain) origOpenTrain(...args); };
+
+    const origCloseTT = window.closeTimetable;
+    window.closeTimetable = function(...args) { togglePlanner(true); if(origCloseTT) origCloseTT(...args); };
+
+    const origOpenMob = window.openMobileModal;
+    window.openMobileModal = function(...args) { togglePlanner(false); if(origOpenMob) origOpenMob(...args); };
+
+    const origCloseMob = window.closeModal;
+    window.closeModal = function(...args) { togglePlanner(true); if(origCloseMob) origCloseMob(...args); };
+});
+
+
+// --- VYLEPŠENÝ NAŠEPTÁVAČ (AUTOCOMPLETE) ---
+
+window.populateStationList = function() {
+    if (window.allStationsList.length > 0) return;
+    let stationSet = new Set();
+    
+    // Zahrne stanice z mapy
+    if (window.stationsData) Object.keys(window.stationsData).forEach(s => stationSet.add(s));
+    
+    // Zahrne VŠECHNY i nevykreslené stanice z jízdních řádů
+    for (let pdf in window.timetablesData) {
+        let trains = window.timetablesData[pdf].trains;
+        if (trains) {
+            for (let tId in trains) {
+                if (trains[tId].stops) {
+                    trains[tId].stops.forEach(stop => {
+                        if (stop.station) stationSet.add(stop.station);
+                    });
+                }
+            }
+        }
+    }
+    // Abecední řazení s podporou české diakritiky
+    window.allStationsList = Array.from(stationSet).sort((a, b) => a.localeCompare(b, 'cs'));
+};
+
+window.handleInput = function(type) {
+    window.populateStationList(); 
+
+    const input = document.getElementById(`planner-${type}`);
+    const box = document.getElementById(`suggestions-${type}`);
+    if (!input || !box) return;
+
+    const val = input.value.toLowerCase().trim();
+
+    // Zavřít ten druhý našeptávač
+    const otherType = type === 'from' ? 'to' : 'from';
+    const otherBox = document.getElementById(`suggestions-${otherType}`);
+    if (otherBox) otherBox.style.display = 'none';
+
+    if (!val) {
+        box.style.display = 'none';
+        return;
+    }
+
+    const matches = window.allStationsList.filter(s => s.toLowerCase().includes(val)).slice(0, 30);
+
+    if (matches.length > 0) {
+        // OPRAVA: Použití onmousedown místo onclick řeší problém se skrýváním
+        box.innerHTML = matches.map(m => {
+            let escaped = m.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+            return `<div class="suggestion-item" onmousedown="window.selectStation('${type}', '${escaped}')">${m}</div>`;
+        }).join('');
+        box.style.display = 'block';
+    } else {
+        box.innerHTML = `<div class="suggestion-item" style="color: #94a3b8; pointer-events: none;">Nenalezeno</div>`;
+        box.style.display = 'block';
+    }
+};
+
+window.selectStation = function(type, station) {
+    document.getElementById(`planner-${type}`).value = station;
+    document.getElementById(`suggestions-${type}`).style.display = 'none';
+};
+
+// Skryje našeptávač při kliknutí jinam (použito mousedown pro synchronizaci)
+document.addEventListener('mousedown', function(e) {
+    if (!e.target.closest('.planner-group')) {
+        const fromBox = document.getElementById('suggestions-from');
+        const toBox = document.getElementById('suggestions-to');
+        if (fromBox) fromBox.style.display = 'none';
+        if (toBox) toBox.style.display = 'none';
+    }
+});
+
+
+// --- VYHLEDÁVACÍ JÁDRO (GRAF A ALGORITMUS) ---
+
 function getPlannerLineData(trainId) {
     let matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
     if (!matchedRoute) return { name: "Vlak", color: "#94a3b8" };
-    // Simplified assumption: grabs base line color. (Advanced transfers logic can be applied here later if needed)
     return { name: matchedRoute.lineName, color: window.lineColorsDict[matchedRoute.lineName] || matchedRoute.color || "#94a3b8" };
 }
 
-// Builds the Absolute Minutes Graph
 function buildPlannerGraph() {
-    if (Object.keys(window.plannerGraphEdges).length > 0) return; // Only build once
-    console.log("Stavím vyhledávací graf...");
+    if (Object.keys(window.plannerGraphEdges).length > 0) return; 
     
     const WEEK_MINS = 7 * 1440;
 
@@ -41,7 +136,8 @@ function buildPlannerGraph() {
             let opNotes = (t.notes || []).filter(n => window.transferLogicData[n]);
             let days = new Set();
             if (opNotes.length === 0) {
-                [0,1,2,3,4,5,6,7].forEach(d => days.add(d)); // No notes = runs daily
+                // OPRAVA: Zahrnuje i 0 (Státní svátek), pokud vlak jezdí denně
+                [0, 1, 2, 3, 4, 5, 6, 7].forEach(d => days.add(d)); 
             } else {
                 opNotes.forEach(n => {
                     (window.transferLogicData[n] || []).forEach(d => days.add(parseInt(d)));
@@ -51,7 +147,6 @@ function buildPlannerGraph() {
             let lineData = getPlannerLineData(tId);
 
             days.forEach(day => {
-                // Duplicate the train for "This Week" (W0) and "Next Week" (W1) to handle Sunday->Monday wrap arounds
                 let baseAbsOrigin_W0 = (day - 1) * 1440 + originMins;
                 let baseAbsOrigin_W1 = baseAbsOrigin_W0 + WEEK_MINS;
 
@@ -71,7 +166,6 @@ function buildPlannerGraph() {
                         let depMins = window.timeToMins(depStr);
                         let arrMins = window.timeToMins(arrStr);
 
-                        // Midnight Crossing Logic
                         if (depMins < lastStopMins) depMins += 1440;
                         if (arrMins < depMins) arrMins += 1440;
 
@@ -98,10 +192,8 @@ function buildPlannerGraph() {
             });
         }
     }
-    console.log("Vyhledávací graf připraven!");
 }
 
-// The Pathfinding Engine (Time-Dependent Dijkstra)
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -110,55 +202,54 @@ window.runPlannerSearch = function() {
     let dayStr = document.getElementById('planner-day').value;
     let timeStr = document.getElementById('planner-time').value;
 
-    if (!from || !to || !window.stationsData[from] || !window.stationsData[to]) {
-        alert("Zadejte platné existující stanice. (Dbejte na překlepy)"); 
+    if (!from || !to) {
+        alert("Zadejte nástupní a cílovou stanici."); 
+        return;
+    }
+    
+    if (!window.plannerGraphEdges[from]) {
+        alert(`Stanice "${from}" nebyla nalezena v jízdních řádech. Využijte našeptávač.`);
         return;
     }
 
-    let dayNum = DAYS_MAP[dayStr] || 1;
+    let dayNum = DAYS_MAP[dayStr] !== undefined ? DAYS_MAP[dayStr] : 1;
     let userMins = window.timeToMins(timeStr);
     if (userMins === 99999) userMins = 0;
     
     let userAbsTime = (dayNum - 1) * 1440 + userMins;
 
-    // Search State Queue: { station, time, path, lastTrain }
     let queue = [{ st: from, time: userAbsTime, path: [], lastTrain: null }];
     let bestTime = { [from]: userAbsTime };
     let foundPath = null;
 
     let loops = 0;
-    // Simple priority queue loop
     while (queue.length > 0 && loops < 50000) {
-        // Sort to always process the earliest arrival first
         queue.sort((a,b) => a.time - b.time); 
         let curr = queue.shift();
         loops++;
 
         if (curr.st === to) {
             foundPath = curr;
-            break; // Earliest arrival found!
+            break; 
         }
 
         let edges = window.plannerGraphEdges[curr.st] || [];
         for (let edge of edges) {
-            // Transfer logic: 5 minute minimum penalty if changing trains
             let isTransfer = curr.lastTrain && curr.lastTrain !== edge.trainId;
             let penalty = isTransfer ? 5 : 0;
             let canBoardTime = curr.time + penalty;
 
-            // Find trains leaving AFTER our board time, but don't wait more than 24 hours
             if (edge.absDep >= canBoardTime && edge.absDep <= canBoardTime + 1440) {
                 let nextAbsArr = edge.absArr;
                 
                 if (!bestTime[edge.to] || nextAbsArr < bestTime[edge.to]) {
                     bestTime[edge.to] = nextAbsArr;
 
-                    // Build the journey log
                     let newPath = [...curr.path];
                     if (isTransfer || curr.path.length === 0) {
                         newPath.push({ type: 'board', st: curr.st, train: edge.trainId, line: edge.lineName, color: edge.color, time: edge.depStr });
                     }
-                    // Overwrite the alight leg to represent the final stop on this specific train
+                    
                     let alightLeg = { type: 'alight', st: edge.to, train: edge.trainId, line: edge.lineName, color: edge.color, time: edge.arrStr };
                     
                     if (newPath.length > 0 && newPath[newPath.length - 1].type === 'alight') {
@@ -186,11 +277,11 @@ function renderPlannerResult(result, startSt, endSt) {
     const formContainer = document.getElementById('planner-form');
     
     if (!result || result.path.length === 0) {
-        alert("Spojení nebylo nalezeno.");
+        alert("Spojení nebylo nalezeno. Zkuste změnit čas nebo den.");
         return;
     }
 
-    formContainer.style.display = 'none'; // Hide form
+    formContainer.style.display = 'none'; 
     
     let html = `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 12px;">
         <span style="font-weight: 700; color: #f8fafc; font-size: 14px;">${startSt} ➔ ${endSt}</span>
@@ -221,7 +312,6 @@ function renderPlannerResult(result, startSt, endSt) {
                 </div>
             </div>`;
             
-            // Check if there is a transfer after this
             if (i < result.path.length - 1) {
                 html += `<div style="text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">▼ Přestup ▼</div>`;
             }
