@@ -84,38 +84,46 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- DETEKCE LINKY SEGMENT PO SEGMENTU (Vaše logika) ---
-function getEdgeLineData(trainId, st1Name, st2Name, explicitLine) {
-    // 1. Pokud má zastávka v datech přímo napsanou linku, má přednost
-    if (explicitLine) {
-        return { name: explicitLine, color: window.lineColorsDict?.[explicitLine] || "#94a3b8" };
+// --- NOVINKA: PŘESNÉ KROKOVÁNÍ POMOCÍ "changeAt" ---
+function processTrainLinesByChangeAt(tId, stops) {
+    // Najdeme všechny linky, které tento vlak vůbec operují
+    let matchedRoutes = window.routesData ? window.routesData.filter(r => r.trainNames && r.trainNames.includes(tId)) : [];
+
+    // Záložní plány pro jednoduché vlaky
+    if (matchedRoutes.length === 0) {
+        return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
+    }
+    if (matchedRoutes.length === 1) {
+        let r = matchedRoutes[0];
+        let c = window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8";
+        return stops.map(() => ({ name: r.lineName, color: c }));
     }
 
-    // Získáme všechny linky, na kterých tento konkrétní vlak operuje
-    let matched = window.routesData ? window.routesData.filter(r => r.trainNames && r.trainNames.includes(trainId)) : [];
+    // Vlak mění linky! Najdeme výchozí linku (ta, která nemá changeAt, nebo prostě první v seznamu)
+    let activeRoute = matchedRoutes.find(r => !r.changeAt) || matchedRoutes[0];
+    let segmentLines = [];
 
-    if (matched.length === 0) return { name: "Vlak", color: "#94a3b8" };
-    if (matched.length === 1) return { name: matched[0].lineName, color: window.lineColorsDict?.[matched[0].lineName] || matched[0].color || "#94a3b8" };
+    // Procházíme zastávku po zastávce přesně tak, jak jede vlak
+    for (let i = 0; i < stops.length - 1; i++) {
+        let st1 = stops[i].station; // Stanice, ze které právě odjíždíme
 
-    // 2. Přesná kontrola segmentu: Hledá linku, kde je vypsaná stanice 1 i stanice 2
-    for (let r of matched) {
-        let pts = r.stations || r.stops || r.path || r.points || [];
-        if (pts.includes(st1Name) && pts.includes(st2Name)) {
-            return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
+        // DŮLEŽITÉ: Kontrola, zda některá linka nehlásí "tady nastupuju já!"
+        let changingRoute = matchedRoutes.find(r => 
+            r.changeAt === st1 || (Array.isArray(r.changeAt) && r.changeAt.includes(st1))
+        );
+
+        if (changingRoute) {
+            activeRoute = changingRoute; // Přepnutí linky
         }
+
+        // Uložíme si linku PŘESNĚ pro tento jeden úsek
+        segmentLines.push({
+            name: activeRoute.lineName,
+            color: window.lineColorsDict?.[activeRoute.lineName] || activeRoute.color || "#94a3b8"
+        });
     }
 
-    // 3. Volnější kontrola (např. projíždíme dělící zastávkou nebo malou nevypsanou zastávkou)
-    // Pokud je alespoň jedna z těch stanic součástí dané linky, přiřadíme úsek k této lince
-    for (let r of matched) {
-        let pts = r.stations || r.stops || r.path || r.points || [];
-        if (pts.includes(st1Name) || pts.includes(st2Name)) {
-            return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
-        }
-    }
-
-    // 4. Záloha pro případ nouze
-    return { name: matched[0].lineName, color: window.lineColorsDict?.[matched[0].lineName] || matched[0].color || "#94a3b8" };
+    return segmentLines;
 }
 
 function buildPlannerGraph() {
@@ -145,6 +153,9 @@ function buildPlannerGraph() {
                 });
             }
 
+            // NECHÁME FUNKCI PROJÍT CELÝ VLAK A ROZDĚLIT MU LINKY PODLE "changeAt"
+            let segmentLinesArray = processTrainLinesByChangeAt(tId, t.stops);
+
             days.forEach(day => {
                 let baseAbsOrigin_W0 = (day - 1) * 1440 + originMins;
                 let baseAbsOrigin_W1 = baseAbsOrigin_W0 + WEEK_MINS;
@@ -171,8 +182,8 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
-                        // Určí linku PŘESNĚ pro tento jeden úsek
-                        let lineData = getEdgeLineData(tId, st1.station, st2.station, st1.line || t.line);
+                        // Přesná linka pro úsek i
+                        let lineData = segmentLinesArray[i]; 
 
                         if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
                         
@@ -181,7 +192,7 @@ function buildPlannerGraph() {
                             absDep: absDep,
                             absArr: absArr,
                             trainId: tId,
-                            lineName: lineData.name,  // Linka určená specificky pro tento okraj grafu
+                            lineName: lineData.name, // Zapíše do grafu přesný název z changeAt!
                             color: lineData.color,
                             depStr: depStr,
                             arrStr: arrStr
@@ -196,7 +207,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- ALGORITMUS (Kontrola změny linky v reálném čase) ---
+// --- ALGORITMUS (Sbírání linek za jízdy) ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -266,7 +277,7 @@ window.runPlannerSearch = function() {
                     let newPath = curr.path.map(ride => ({ ...ride, lines: [...ride.lines] }));
 
                     if (isTransfer || newPath.length === 0) {
-                        // Nastupujeme do vlaku - zaznamenáme linku prvního úseku
+                        // Nástup do nového vlaku
                         newPath.push({ 
                             trainId: edge.trainId, 
                             startSt: curr.st, 
@@ -276,18 +287,15 @@ window.runPlannerSearch = function() {
                             lines: [{ name: edge.lineName, color: edge.color }] 
                         });
                     } else {
-                        // JEDEME STEJNÝM VLAKEM DÁL
+                        // Jedeme stejným vlakem
                         let currentRide = newPath[newPath.length - 1];
                         currentRide.endSt = edge.to;
                         currentRide.arrStr = edge.arrStr;
                         
-                        // ZKONTROLUJEME, JESTLI NA TOMTO ÚSEKU VLAK NEZMĚNIL LINKU!
-                        let lastLine = currentRide.lines[currentRide.lines.length - 1];
-                        if (lastLine.name !== edge.lineName) {
-                            // Brání opakování, pokud by se linka nesmyslně střídala
-                            if (!currentRide.lines.some(l => l.name === edge.lineName)) {
-                                currentRide.lines.push({ name: edge.lineName, color: edge.color });
-                            }
+                        // ZKONTROLUJEME, JESTLI SE DÍKY "changeAt" NEZMĚNIL NÁZEV!
+                        let lastLineObj = currentRide.lines[currentRide.lines.length - 1];
+                        if (lastLineObj.name !== edge.lineName) {
+                            currentRide.lines.push({ name: edge.lineName, color: edge.color });
                         }
                     }
 
@@ -326,7 +334,6 @@ function renderPlannerResult(result, startSt, endSt) {
 
     result.path.forEach((ride, i) => {
         
-        // Vykreslí všechny protnuté linky do jedné řady
         let linesHtml = ride.lines.map(l => {
             let textColor = window.getContrastColor ? window.getContrastColor(l.color) : '#fff';
             return `<span class="line-badge" style="background-color: ${l.color}; color: ${textColor}; font-size: 11px;">${l.name}</span>`;
