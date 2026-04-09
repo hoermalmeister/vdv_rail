@@ -12,36 +12,7 @@ window.removeDiacritics = function(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-// --- AUTOMATICKÉ SKRÝVÁNÍ VYHLEDÁVAČE BĚHEM MODALŮ ---
-document.addEventListener('DOMContentLoaded', () => {
-    function togglePlanner(show) {
-        const p = document.querySelector('.planner-container');
-        if (p) p.style.display = show ? '' : 'none';
-    }
-
-    const origOpenTT = window.openTimetable;
-    window.openTimetable = function(...args) { togglePlanner(false); if(origOpenTT) origOpenTT(...args); };
-
-    const origOpenTrain = window.openSingleTrain;
-    window.openSingleTrain = function(...args) { togglePlanner(false); if(origOpenTrain) origOpenTrain(...args); };
-
-    const origCloseTT = window.closeTimetable;
-    window.closeTimetable = function(...args) { togglePlanner(true); if(origCloseTT) origCloseTT(...args); };
-
-    const origOpenMob = window.openMobileModal;
-    window.openMobileModal = function(...args) { togglePlanner(false); if(origOpenMob) origOpenMob(...args); };
-
-    // OPRAVA: Přidáno odchycení pro přímé zobrazení jedné linky (přímý klik na segment)
-    const origShowMob = window.showMobileDetails;
-    window.showMobileDetails = function(...args) { togglePlanner(false); if(origShowMob) origShowMob(...args); };
-
-    const origCloseMob = window.closeModal;
-    window.closeModal = function(...args) { togglePlanner(true); if(origCloseMob) origCloseMob(...args); };
-});
-
-
 // --- VYLEPŠENÝ NAŠEPTÁVAČ (BEZ DIAKRITIKY) ---
-
 window.populateStationList = function() {
     if (window.allStationsList.length > 0) return;
     let stationSet = new Set();
@@ -70,7 +41,6 @@ window.handleInput = function(type) {
     const box = document.getElementById(`suggestions-${type}`);
     if (!input || !box) return;
 
-    // OPRAVA: Vytvoříme variantu textu bez diakritiky pro vyhledávání
     const rawVal = input.value.toLowerCase().trim();
     const searchVal = window.removeDiacritics(rawVal);
 
@@ -83,7 +53,6 @@ window.handleInput = function(type) {
         return;
     }
 
-    // OPRAVA: Filtrujeme tak, že z databáze i z inputu dočasně sundáme diakritiku
     const matches = window.allStationsList.filter(s => 
         window.removeDiacritics(s.toLowerCase()).includes(searchVal)
     ).slice(0, 30);
@@ -116,7 +85,6 @@ document.addEventListener('mousedown', function(e) {
 
 
 // --- VYHLEDÁVACÍ JÁDRO (GRAF A ALGORITMUS) ---
-
 function getPlannerLineData(trainId) {
     let matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
     if (!matchedRoute) return { name: "Vlak", color: "#94a3b8" };
