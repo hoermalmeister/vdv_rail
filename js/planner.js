@@ -1,5 +1,5 @@
 window.plannerGraphEdges = {}; 
-window.allStationsList = []; // Master list for autocomplete
+window.allStationsList = []; 
 
 const DAYS_MAP = { 
     "Pondělí": 1, "Úterý": 2, "Středa": 3, "Čtvrtek": 4, 
@@ -12,7 +12,33 @@ window.removeDiacritics = function(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-// --- VYLEPŠENÝ NAŠEPTÁVAČ (BEZ DIAKRITIKY) ---
+// --- AUTOMATICKÉ SKRÝVÁNÍ VYHLEDÁVAČE BĚHEM MODALŮ ---
+document.addEventListener('DOMContentLoaded', () => {
+    function togglePlanner(show) {
+        const p = document.querySelector('.planner-container');
+        if (p) p.style.display = show ? '' : 'none';
+    }
+
+    const origOpenTT = window.openTimetable;
+    window.openTimetable = function(...args) { togglePlanner(false); if(origOpenTT) origOpenTT(...args); };
+
+    const origOpenTrain = window.openSingleTrain;
+    window.openSingleTrain = function(...args) { togglePlanner(false); if(origOpenTrain) origOpenTrain(...args); };
+
+    const origCloseTT = window.closeTimetable;
+    window.closeTimetable = function(...args) { togglePlanner(true); if(origCloseTT) origCloseTT(...args); };
+
+    const origOpenMob = window.openMobileModal;
+    window.openMobileModal = function(...args) { togglePlanner(false); if(origOpenMob) origOpenMob(...args); };
+
+    const origShowMob = window.showMobileDetails;
+    window.showMobileDetails = function(...args) { togglePlanner(false); if(origShowMob) origShowMob(...args); };
+
+    const origCloseMob = window.closeModal;
+    window.closeModal = function(...args) { togglePlanner(true); if(origCloseMob) origCloseMob(...args); };
+});
+
+// --- VYLEPŠENÝ NAŠEPTÁVAČ ---
 window.populateStationList = function() {
     if (window.allStationsList.length > 0) return;
     let stationSet = new Set();
@@ -84,9 +110,21 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- VYHLEDÁVACÍ JÁDRO (GRAF A ALGORITMUS) ---
-function getPlannerLineData(trainId) {
-    let matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
+// --- VYLEPŠENÉ JÁDRO: DETEKCE LINEK DLE ÚSEKU ---
+function getEdgeLineData(trainId, st1Name, st2Name) {
+    if (!window.routesData) return { name: "Vlak", color: "#94a3b8" };
+    
+    // Nejprve hledá linku, která obsahuje daný vlak A ZÁROVEŇ obě stanice
+    let matchedRoute = window.routesData.find(r => 
+        r.trainNames && r.trainNames.includes(trainId) &&
+        r.stations && r.stations.includes(st1Name) && r.stations.includes(st2Name)
+    );
+    
+    // Nouzovka: pokud nenajde přesný úsek, vezme první linku tohoto vlaku
+    if (!matchedRoute) {
+        matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
+    }
+
     if (!matchedRoute) return { name: "Vlak", color: "#94a3b8" };
     return { name: matchedRoute.lineName, color: window.lineColorsDict[matchedRoute.lineName] || matchedRoute.color || "#94a3b8" };
 }
@@ -118,8 +156,6 @@ function buildPlannerGraph() {
                 });
             }
 
-            let lineData = getPlannerLineData(tId);
-
             days.forEach(day => {
                 let baseAbsOrigin_W0 = (day - 1) * 1440 + originMins;
                 let baseAbsOrigin_W1 = baseAbsOrigin_W0 + WEEK_MINS;
@@ -146,6 +182,9 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
+                        // OPRAVA 2: Barva a jméno linky se určuje specificky pro tento mezistaniční úsek!
+                        let lineData = getEdgeLineData(tId, st1.station, st2.station);
+
                         if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
                         
                         window.plannerGraphEdges[st1.station].push({
@@ -168,6 +207,7 @@ function buildPlannerGraph() {
     }
 }
 
+// --- OPRAVA 1: PARETO ROUTING (Chytré vyhledávání) ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -176,15 +216,8 @@ window.runPlannerSearch = function() {
     let dayStr = document.getElementById('planner-day').value;
     let timeStr = document.getElementById('planner-time').value;
 
-    if (!from || !to) {
-        alert("Zadejte nástupní a cílovou stanici."); 
-        return;
-    }
-    
-    if (!window.plannerGraphEdges[from]) {
-        alert(`Stanice "${from}" nebyla nalezena v jízdních řádech. Využijte našeptávač.`);
-        return;
-    }
+    if (!from || !to) { alert("Zadejte nástupní a cílovou stanici."); return; }
+    if (!window.plannerGraphEdges[from]) { alert(`Stanice "${from}" nebyla nalezena.`); return; }
 
     let dayNum = DAYS_MAP[dayStr] !== undefined ? DAYS_MAP[dayStr] : 1;
     let userMins = window.timeToMins(timeStr);
@@ -192,19 +225,23 @@ window.runPlannerSearch = function() {
     
     let userAbsTime = (dayNum - 1) * 1440 + userMins;
 
-    let queue = [{ st: from, time: userAbsTime, path: [], lastTrain: null }];
-    let bestTime = { [from]: userAbsTime };
-    let foundPath = null;
+    // Fronta nyní hlídá i "originDep" - reálný čas, kdy jsme opustili první stanici
+    let queue = [{ st: from, time: userAbsTime, path: [], lastTrain: null, originDep: null, transfers: 0 }];
+    
+    // Profil zastávky = hlídáme, abychom nešli horší cestou. Ale povolíme pozdější odjezd, pokud je rychlejší!
+    let bestProfiles = { [from]: [{ arr: userAbsTime, dep: userAbsTime, transfers: 0 }] };
+    let validPaths = [];
 
     let loops = 0;
-    while (queue.length > 0 && loops < 50000) {
+    while (queue.length > 0 && loops < 100000) {
         queue.sort((a,b) => a.time - b.time); 
         let curr = queue.shift();
         loops++;
 
         if (curr.st === to) {
-            foundPath = curr;
-            break; 
+            validPaths.push(curr);
+            if (validPaths.length > 20) break; // Zastaví hledání, když má dostatek dobrých variant
+            continue; 
         }
 
         let edges = window.plannerGraphEdges[curr.st] || [];
@@ -213,11 +250,27 @@ window.runPlannerSearch = function() {
             let penalty = isTransfer ? 5 : 0;
             let canBoardTime = curr.time + penalty;
 
-            if (edge.absDep >= canBoardTime && edge.absDep <= canBoardTime + 1440) {
+            // Omezení čekání max na 12 hodin, ať se nehledá nesmyslně dlouho
+            if (edge.absDep >= canBoardTime && edge.absDep <= canBoardTime + 720) {
                 let nextAbsArr = edge.absArr;
+                let nextOriginDep = curr.originDep === null ? edge.absDep : curr.originDep;
+                let nextTransfers = curr.transfers + (isTransfer ? 1 : 0);
                 
-                if (!bestTime[edge.to] || nextAbsArr < bestTime[edge.to]) {
-                    bestTime[edge.to] = nextAbsArr;
+                let profiles = bestProfiles[edge.to] || [];
+                let dominated = false;
+                
+                // Zkontrolujeme, jestli už na zastávku nevede striktně lepší cesta
+                for (let p of profiles) {
+                    if (p.arr <= nextAbsArr && p.dep >= nextOriginDep && p.transfers <= nextTransfers) {
+                        dominated = true;
+                        break;
+                    }
+                }
+
+                if (!dominated) {
+                    // Odstraní starší profily, které tato nová cesta právě překonala
+                    bestProfiles[edge.to] = profiles.filter(p => !(nextAbsArr <= p.arr && nextOriginDep >= p.dep && nextTransfers <= p.transfers));
+                    bestProfiles[edge.to].push({ arr: nextAbsArr, dep: nextOriginDep, transfers: nextTransfers });
 
                     let newPath = [...curr.path];
                     if (isTransfer || curr.path.length === 0) {
@@ -225,7 +278,6 @@ window.runPlannerSearch = function() {
                     }
                     
                     let alightLeg = { type: 'alight', st: edge.to, train: edge.trainId, line: edge.lineName, color: edge.color, time: edge.arrStr };
-                    
                     if (newPath.length > 0 && newPath[newPath.length - 1].type === 'alight') {
                         newPath[newPath.length - 1] = alightLeg; 
                     } else {
@@ -236,14 +288,33 @@ window.runPlannerSearch = function() {
                         st: edge.to,
                         time: nextAbsArr,
                         path: newPath,
-                        lastTrain: edge.trainId
+                        lastTrain: edge.trainId,
+                        originDep: nextOriginDep,
+                        transfers: nextTransfers
                     });
                 }
             }
         }
     }
 
-    renderPlannerResult(foundPath, from, to);
+    if (validPaths.length === 0) {
+        renderPlannerResult(null, from, to);
+        return;
+    }
+
+    // Vybere to ABSOLUTNĚ nejlepší spojení z nalezených
+    validPaths.sort((a, b) => {
+        let durationA = a.time - a.originDep;
+        let durationB = b.time - b.originDep;
+        
+        // Bodovací systém: 1 minuta jízdy = 1 bod. 1 minuta čekání doma = 0.5 bodu. Přestup = 20 bodů penalizace.
+        let costA = durationA + ((a.originDep - userAbsTime) * 0.5) + (a.transfers * 20);
+        let costB = durationB + ((b.originDep - userAbsTime) * 0.5) + (b.transfers * 20);
+        
+        return costA - costB;
+    });
+
+    renderPlannerResult(validPaths[0], from, to);
 };
 
 function renderPlannerResult(result, startSt, endSt) {
