@@ -178,7 +178,6 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         right: 10px; 
         left: auto;
         width: 274px; 
-        /* FIXED: Set to auto so the button and modal can live on different layers */
         z-index: auto; 
     }
     
@@ -197,9 +196,8 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
         backdrop-filter: blur(10px);
         cursor: pointer;
         box-sizing: border-box;
-        /* FIXED: Put the button safely beneath the dim backdrop */
         position: relative;
-        z-index: 4000; 
+        z-index: 2000; 
     }
 
     .planner-box {
