@@ -84,44 +84,38 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- NOVINKA: PŘESNÉ KROKOVÁNÍ POMOCÍ "changeAt" ---
+// --- PŘESNÉ KROKOVÁNÍ POMOCÍ "changeAt" ---
 function processTrainLinesByChangeAt(tId, stops) {
     let matchedRoutes = window.routesData ? window.routesData.filter(r => r.trainNames && r.trainNames.includes(tId)) : [];
 
-    // DIAGNOSTIKA
-    if (tId.includes("5904") || tId.includes("KOLÍN")) { // Přizpůsobte číslo vlaku, který zkoušíte!
-        console.log(`[DEBUG] Zkoumám vlak: ${tId}`);
-        console.log(`[DEBUG] Z routes.json jsem pro tento vlak našel linky:`, matchedRoutes);
+    if (matchedRoutes.length === 0) {
+        return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
     }
 
-    if (matchedRoutes.length === 0) return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
-    if (matchedRoutes.length === 1) {
-        let r = matchedRoutes[0];
-        return stops.map(() => ({ name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" }));
-    }
-
+    // Najde výchozí linku (ta, která NEMÁ vyplněné changeAt)
     let activeRoute = matchedRoutes.find(r => !r.changeAt) || matchedRoutes[0];
     let segmentLines = [];
 
     for (let i = 0; i < stops.length - 1; i++) {
         let st1 = stops[i].station; 
 
-        let changingRoute = matchedRoutes.find(r => 
-            r.changeAt === st1 || (Array.isArray(r.changeAt) && r.changeAt.includes(st1))
-        );
-
-        // DIAGNOSTIKA
-        if (tId.includes("5904")) {
-            console.log(`[DEBUG] Jedu přes stanici: "${st1}"`);
-            if (changingRoute) console.log(`[DEBUG] ---> BINGO! V této stanici měním na linku:`, changingRoute.lineName);
-        }
+        // Zjistíme, jestli nějaká linka nehlásí, že odsud přebírá štafetu
+        let changingRoute = matchedRoutes.find(r => {
+            if (!r.changeAt) return false;
+            // Odstranění diakritiky a mezer zaručí, že se to vždy trefí
+            let cleanSt1 = window.removeDiacritics(st1).toLowerCase().trim();
+            if (Array.isArray(r.changeAt)) {
+                return r.changeAt.some(c => window.removeDiacritics(c).toLowerCase().trim() === cleanSt1);
+            }
+            return window.removeDiacritics(r.changeAt).toLowerCase().trim() === cleanSt1;
+        });
 
         if (changingRoute) {
             activeRoute = changingRoute; 
         }
 
         segmentLines.push({
-            name: activeRoute.lineName,
+            name: activeRoute.lineName || "Vlak",
             color: window.lineColorsDict?.[activeRoute.lineName] || activeRoute.color || "#94a3b8"
         });
     }
@@ -130,8 +124,8 @@ function processTrainLinesByChangeAt(tId, stops) {
 }
 
 function buildPlannerGraph() {
-    if (Object.keys(window.plannerGraphEdges).length > 0) return; 
-    
+    // ODSTRANĚNO CACHOVÁNÍ! Graf se nyní staví VŽDY s absolutně čerstvými daty.
+    window.plannerGraphEdges = {}; 
     const WEEK_MINS = 7 * 1440;
 
     for (let pdf in window.timetablesData) {
@@ -156,7 +150,6 @@ function buildPlannerGraph() {
                 });
             }
 
-            // NECHÁME FUNKCI PROJÍT CELÝ VLAK A ROZDĚLIT MU LINKY PODLE "changeAt"
             let segmentLinesArray = processTrainLinesByChangeAt(tId, t.stops);
 
             days.forEach(day => {
@@ -185,7 +178,6 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
-                        // Přesná linka pro úsek i
                         let lineData = segmentLinesArray[i]; 
 
                         if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
@@ -195,7 +187,7 @@ function buildPlannerGraph() {
                             absDep: absDep,
                             absArr: absArr,
                             trainId: tId,
-                            lineName: lineData.name, // Zapíše do grafu přesný název z changeAt!
+                            lineName: lineData.name,
                             color: lineData.color,
                             depStr: depStr,
                             arrStr: arrStr
@@ -210,7 +202,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- ALGORITMUS (Sbírání linek za jízdy) ---
+// --- ALGORITMUS ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -280,7 +272,6 @@ window.runPlannerSearch = function() {
                     let newPath = curr.path.map(ride => ({ ...ride, lines: [...ride.lines] }));
 
                     if (isTransfer || newPath.length === 0) {
-                        // Nástup do nového vlaku
                         newPath.push({ 
                             trainId: edge.trainId, 
                             startSt: curr.st, 
@@ -290,14 +281,13 @@ window.runPlannerSearch = function() {
                             lines: [{ name: edge.lineName, color: edge.color }] 
                         });
                     } else {
-                        // Jedeme stejným vlakem
                         let currentRide = newPath[newPath.length - 1];
                         currentRide.endSt = edge.to;
                         currentRide.arrStr = edge.arrStr;
                         
-                        // ZKONTROLUJEME, JESTLI SE DÍKY "changeAt" NEZMĚNIL NÁZEV!
+                        // Neprůstřelná kontrola stringů! (Oříznutí mezer)
                         let lastLineObj = currentRide.lines[currentRide.lines.length - 1];
-                        if (lastLineObj.name !== edge.lineName) {
+                        if (String(lastLineObj.name).trim() !== String(edge.lineName).trim()) {
                             currentRide.lines.push({ name: edge.lineName, color: edge.color });
                         }
                     }
@@ -314,6 +304,7 @@ window.runPlannerSearch = function() {
         }
     }
 
+    console.log("=== FINÁLNÍ TRASA ===", foundPath);
     renderPlannerResult(foundPath, from, to);
 };
 
