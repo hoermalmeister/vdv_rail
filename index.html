@@ -25,6 +25,20 @@
 
     <div id="planner-backdrop" onclick="window.togglePlannerModal(false)"></div>
 
+    <script>
+        window.togglePlannerModal = function(show) {
+            const box = document.getElementById('planner-box');
+            const backdrop = document.getElementById('planner-backdrop');
+            if (show) {
+                box.classList.add('mobile-active');
+                backdrop.classList.add('active');
+            } else {
+                box.classList.remove('mobile-active');
+                backdrop.classList.remove('active');
+            }
+        };
+    </script>
+
     <div class="planner-container">
         <button class="planner-mobile-btn" onclick="window.togglePlannerModal(true)">
             <span>🔍</span> Vyhledávač spojení (Beta)
