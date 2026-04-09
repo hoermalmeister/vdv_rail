@@ -84,21 +84,35 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- DETEKCE LINEK DLE ÚSEKU ---
-function getEdgeLineData(trainId, st1Name, st2Name) {
+// --- DETEKTIVNÍ DETEKCE LINEK DLE ÚSEKU ---
+function getEdgeLineData(trainId, st1Name, st2Name, pdfName) {
     if (!window.routesData) return { name: "Vlak", color: "#94a3b8" };
     
-    let matchedRoute = window.routesData.find(r => 
-        r.trainNames && r.trainNames.includes(trainId) &&
-        r.stations && r.stations.includes(st1Name) && r.stations.includes(st2Name)
-    );
+    let matchingRoutes = window.routesData.filter(r => r.trainNames && r.trainNames.includes(trainId));
     
-    if (!matchedRoute) {
-        matchedRoute = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
+    if (matchingRoutes.length === 0) return { name: "Vlak", color: "#94a3b8" };
+    if (matchingRoutes.length === 1) {
+        let r = matchingRoutes[0];
+        return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
     }
 
-    if (!matchedRoute) return { name: "Vlak", color: "#94a3b8" };
-    return { name: matchedRoute.lineName, color: window.lineColorsDict[matchedRoute.lineName] || matchedRoute.color || "#94a3b8" };
+    // Vlak má více linek. Pokusíme se logicky odvodit, na které je zrovna teď.
+    for (let r of matchingRoutes) {
+        // 1. Zkusíme podle stanic (pokud vaše data obsahují seznam stanic pro danou linku)
+        let pts = r.stations || r.stops || r.path || r.points || [];
+        if (pts.length > 0 && pts.includes(st1Name) && pts.includes(st2Name)) {
+            return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
+        }
+        
+        // 2. Heuristika: Zkusíme podle názvu Jízdního řádu (Pokud se soubor jmenuje např. "S20.json")
+        if (pdfName && typeof pdfName === 'string' && pdfName.toUpperCase().includes(r.lineName.toUpperCase())) {
+            return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
+        }
+    }
+
+    // Záloha: Pokud v datech chybí jakákoliv návaznost stanic na linky, vrátí první možnou linku.
+    let fallback = matchingRoutes[0];
+    return { name: fallback.lineName, color: window.lineColorsDict?.[fallback.lineName] || fallback.color || "#94a3b8" };
 }
 
 function buildPlannerGraph() {
@@ -154,7 +168,8 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
-                        let lineData = getEdgeLineData(tId, st1.station, st2.station);
+                        // PŘEDÁVÁME I NÁZEV PDF SOUBORU PRO LEPŠÍ DETEKCI
+                        let lineData = getEdgeLineData(tId, st1.station, st2.station, pdf);
 
                         if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
                         
@@ -178,7 +193,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- NOVÝ ALGORITMUS (1 JÍZDA = 1 BLOK) ---
+// --- ALGORITMUS (1 JÍZDA = 1 BLOK) ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -245,11 +260,9 @@ window.runPlannerSearch = function() {
                     bestProfiles[edge.to] = profiles.filter(p => !(nextCost <= p.cost && edge.absArr <= p.arrTime));
                     bestProfiles[edge.to].push({ cost: nextCost, arrTime: edge.absArr });
 
-                    // BEZPEČNÁ HLUBOKÁ KOPIE (zabrání přepisování větví)
                     let newPath = curr.path.map(ride => ({ ...ride, lines: [...ride.lines] }));
 
                     if (isTransfer || newPath.length === 0) {
-                        // Vytvoří novou jízdu (1 fyzický vlak)
                         newPath.push({ 
                             trainId: edge.trainId, 
                             startSt: curr.st, 
@@ -259,12 +272,10 @@ window.runPlannerSearch = function() {
                             lines: [{ name: edge.lineName, color: edge.color }] 
                         });
                     } else {
-                        // Pokračujeme ve stejném vlaku (upravíme konečnou stanici a čas)
                         let currentRide = newPath[newPath.length - 1];
                         currentRide.endSt = edge.to;
                         currentRide.arrStr = edge.arrStr;
                         
-                        // Zkontroluje, jestli se nezměnila linka. Pokud ano, přidá ji na seznam linek tohoto vlaku
                         let lastLine = currentRide.lines[currentRide.lines.length - 1];
                         if (lastLine.name !== edge.lineName) {
                             currentRide.lines.push({ name: edge.lineName, color: edge.color });
@@ -304,18 +315,16 @@ function renderPlannerResult(result, startSt, endSt) {
     </div>
     <div style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 4px;">`;
 
-    // Nyní iterujeme čistě po jednotlivých JÍZDÁCH (jeden vlak = jeden blok)
     result.path.forEach((ride, i) => {
         
-        // Vykreslí všechny linky, kterými tento vlak za naši jízdu prošel
         let linesHtml = ride.lines.map(l => {
             let textColor = window.getContrastColor ? window.getContrastColor(l.color) : '#fff';
-            return `<span style="background-color: ${l.color}; color: ${textColor}; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${l.name}</span>`;
+            return `<span class="line-badge" style="background-color: ${l.color}; color: ${textColor}; font-size: 11px;">${l.name}</span>`;
         }).join('<span style="color: #94a3b8; font-size: 10px; margin: 0 4px;">➔</span>');
 
         html += `<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <div style="display: flex; align-items: center;">${linesHtml}</div>
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 2px;">${linesHtml}</div>
                 <span style="font-size: 11px; font-weight: 700; color: #38bdf8; cursor: pointer;" onclick="window.openSingleTrain('${ride.trainId}')">${ride.trainId}</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 12px; color: #e2e8f0; margin-bottom: 4px;">
@@ -328,7 +337,6 @@ function renderPlannerResult(result, startSt, endSt) {
             </div>
         </div>`;
         
-        // Přestup se objeví jen a pouze tehdy, když se fakticky mění vlakové ID
         if (i < result.path.length - 1) {
             html += `<div style="text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">▼ Přestup ▼</div>`;
         }
