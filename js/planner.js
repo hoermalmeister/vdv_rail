@@ -84,7 +84,7 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- ČTENÍ LINEK PŘESNĚ PODLE VAŠEHO JSON FORMÁTU ---
+// --- ČTENÍ LINEK (S DETEKCÍ SMĚRU JÍZDY) ---
 function processTrainLinesByChangeAt(tId, stops) {
     let matchedRoutes = window.routesData ? window.routesData.filter(r => r.trainNames && r.trainNames.includes(tId)) : [];
 
@@ -92,23 +92,45 @@ function processTrainLinesByChangeAt(tId, stops) {
         return stops.map(() => ({ name: "Vlak", color: "#94a3b8" }));
     }
 
-    // Vezmeme první (hlavní) definici trasy pro tento vlak z routes.json
     let routeDef = matchedRoutes[0];
     let segmentLines = [];
     
-    // Nastavíme výchozí stav podle první poloviny cesty
-    let currentLineName = routeDef.lineName;
-    let currentLineColor = window.lineColorsDict?.[routeDef.lineName] || routeDef.color || "#94a3b8";
+    // 1. ZJISTĚNÍ SMĚRU JÍZDY (PROTISMĚR?)
+    let isBackward = false;
+    if (routeDef.waypoints && routeDef.waypoints.length > 1 && stops.length > 1) {
+        // Podíváme se na první a poslední zastávku fyzického vlaku
+        let firstSt = window.removeDiacritics(stops[0].station).toLowerCase().trim();
+        let lastSt = window.removeDiacritics(stops[stops.length - 1].station).toLowerCase().trim();
 
-    // Procházíme zastávku po zastávce
+        let cleanWaypoints = routeDef.waypoints.map(w => window.removeDiacritics(w).toLowerCase().trim());
+        
+        let idxFirst = cleanWaypoints.indexOf(firstSt);
+        let idxLast = cleanWaypoints.indexOf(lastSt);
+
+        // Pokud první stanice leží v seznamu AŽ ZA tou poslední, jedeme pozpátku!
+        if (idxFirst !== -1 && idxLast !== -1 && idxFirst > idxLast) {
+            isBackward = true;
+        }
+    }
+
+    // 2. NASTAVENÍ VÝCHOZÍ LINKY (podle směru)
+    // Pokud jedeme pozpátku a máme dělenou trasu, začínáme rovnou s tou "cílovou" linkou
+    let currentLineName = (isBackward && routeDef.changesTo) ? routeDef.changesTo : routeDef.lineName;
+    
+    let currentLineColor = "#94a3b8";
+    if (isBackward && routeDef.changesTo) {
+        currentLineColor = routeDef.changeColor || window.lineColorsDict?.[routeDef.changesTo] || "#94a3b8";
+    } else {
+        currentLineColor = window.lineColorsDict?.[routeDef.lineName] || routeDef.color || "#94a3b8";
+    }
+
+    // 3. KROKOVÁNÍ PO STANICÍCH
     for (let i = 0; i < stops.length - 1; i++) {
         let st1 = stops[i].station; 
 
-        // Pokud vlak hlásí, že má změnu, zkontrolujeme, jestli jsme právě dojeli do té dělící stanice
         if (routeDef.changeAt) {
             let cleanSt1 = window.removeDiacritics(st1).toLowerCase().trim();
             
-            // Podpora pro string i array (kdyby náhodou vlak měnil linku na více místech)
             let isChangingHere = false;
             if (Array.isArray(routeDef.changeAt)) {
                 isChangingHere = routeDef.changeAt.some(c => window.removeDiacritics(c).toLowerCase().trim() === cleanSt1);
@@ -116,14 +138,20 @@ function processTrainLinesByChangeAt(tId, stops) {
                 isChangingHere = window.removeDiacritics(routeDef.changeAt).toLowerCase().trim() === cleanSt1;
             }
 
-            // BINGO! Přijeli jsme do uzlu, kde se mění označení
+            // DOJELI JSME DO DĚLÍCÍ STANICE
             if (isChangingHere) {
-                currentLineName = routeDef.changesTo || currentLineName;
-                currentLineColor = routeDef.changeColor || window.lineColorsDict?.[currentLineName] || currentLineColor;
+                if (isBackward) {
+                    // Jedeme pozpátku, takže se "vracíme" k hlavní lince
+                    currentLineName = routeDef.lineName;
+                    currentLineColor = window.lineColorsDict?.[routeDef.lineName] || routeDef.color || "#94a3b8";
+                } else {
+                    // Jedeme klasicky kupředu, přecházíme na cílovou linku
+                    currentLineName = routeDef.changesTo || currentLineName;
+                    currentLineColor = routeDef.changeColor || window.lineColorsDict?.[currentLineName] || currentLineColor;
+                }
             }
         }
 
-        // Zápis linky pro aktuální úsek trasy
         segmentLines.push({
             name: currentLineName || "Vlak",
             color: currentLineColor
@@ -159,7 +187,6 @@ function buildPlannerGraph() {
                 });
             }
 
-            // Tady se provede kompletní naskenování vlaku a jeho barev!
             let segmentLinesArray = processTrainLinesByChangeAt(tId, t.stops);
 
             days.forEach(day => {
