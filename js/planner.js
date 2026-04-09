@@ -7,6 +7,11 @@ const DAYS_MAP = {
     "Státní svátek": 0 
 };
 
+// --- POMOCNÁ FUNKCE PRO ODSTRANĚNÍ DIAKRITIKY ---
+window.removeDiacritics = function(str) {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
 // --- AUTOMATICKÉ SKRÝVÁNÍ VYHLEDÁVAČE BĚHEM MODALŮ ---
 document.addEventListener('DOMContentLoaded', () => {
     function togglePlanner(show) {
@@ -14,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p) p.style.display = show ? '' : 'none';
     }
 
-    // "Zavěsíme" se na existující funkce bez nutnosti měnit ostatní soubory
     const origOpenTT = window.openTimetable;
     window.openTimetable = function(...args) { togglePlanner(false); if(origOpenTT) origOpenTT(...args); };
 
@@ -27,21 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const origOpenMob = window.openMobileModal;
     window.openMobileModal = function(...args) { togglePlanner(false); if(origOpenMob) origOpenMob(...args); };
 
+    // OPRAVA: Přidáno odchycení pro přímé zobrazení jedné linky (přímý klik na segment)
+    const origShowMob = window.showMobileDetails;
+    window.showMobileDetails = function(...args) { togglePlanner(false); if(origShowMob) origShowMob(...args); };
+
     const origCloseMob = window.closeModal;
     window.closeModal = function(...args) { togglePlanner(true); if(origCloseMob) origCloseMob(...args); };
 });
 
 
-// --- VYLEPŠENÝ NAŠEPTÁVAČ (AUTOCOMPLETE) ---
+// --- VYLEPŠENÝ NAŠEPTÁVAČ (BEZ DIAKRITIKY) ---
 
 window.populateStationList = function() {
     if (window.allStationsList.length > 0) return;
     let stationSet = new Set();
     
-    // Zahrne stanice z mapy
     if (window.stationsData) Object.keys(window.stationsData).forEach(s => stationSet.add(s));
     
-    // Zahrne VŠECHNY i nevykreslené stanice z jízdních řádů
     for (let pdf in window.timetablesData) {
         let trains = window.timetablesData[pdf].trains;
         if (trains) {
@@ -54,7 +60,6 @@ window.populateStationList = function() {
             }
         }
     }
-    // Abecední řazení s podporou české diakritiky
     window.allStationsList = Array.from(stationSet).sort((a, b) => a.localeCompare(b, 'cs'));
 };
 
@@ -65,22 +70,25 @@ window.handleInput = function(type) {
     const box = document.getElementById(`suggestions-${type}`);
     if (!input || !box) return;
 
-    const val = input.value.toLowerCase().trim();
+    // OPRAVA: Vytvoříme variantu textu bez diakritiky pro vyhledávání
+    const rawVal = input.value.toLowerCase().trim();
+    const searchVal = window.removeDiacritics(rawVal);
 
-    // Zavřít ten druhý našeptávač
     const otherType = type === 'from' ? 'to' : 'from';
     const otherBox = document.getElementById(`suggestions-${otherType}`);
     if (otherBox) otherBox.style.display = 'none';
 
-    if (!val) {
+    if (!searchVal) {
         box.style.display = 'none';
         return;
     }
 
-    const matches = window.allStationsList.filter(s => s.toLowerCase().includes(val)).slice(0, 30);
+    // OPRAVA: Filtrujeme tak, že z databáze i z inputu dočasně sundáme diakritiku
+    const matches = window.allStationsList.filter(s => 
+        window.removeDiacritics(s.toLowerCase()).includes(searchVal)
+    ).slice(0, 30);
 
     if (matches.length > 0) {
-        // OPRAVA: Použití onmousedown místo onclick řeší problém se skrýváním
         box.innerHTML = matches.map(m => {
             let escaped = m.replace(/'/g, "\\'").replace(/"/g, "&quot;");
             return `<div class="suggestion-item" onmousedown="window.selectStation('${type}', '${escaped}')">${m}</div>`;
@@ -97,7 +105,6 @@ window.selectStation = function(type, station) {
     document.getElementById(`suggestions-${type}`).style.display = 'none';
 };
 
-// Skryje našeptávač při kliknutí jinam (použito mousedown pro synchronizaci)
 document.addEventListener('mousedown', function(e) {
     if (!e.target.closest('.planner-group')) {
         const fromBox = document.getElementById('suggestions-from');
@@ -136,7 +143,6 @@ function buildPlannerGraph() {
             let opNotes = (t.notes || []).filter(n => window.transferLogicData[n]);
             let days = new Set();
             if (opNotes.length === 0) {
-                // OPRAVA: Zahrnuje i 0 (Státní svátek), pokud vlak jezdí denně
                 [0, 1, 2, 3, 4, 5, 6, 7].forEach(d => days.add(d)); 
             } else {
                 opNotes.forEach(n => {
