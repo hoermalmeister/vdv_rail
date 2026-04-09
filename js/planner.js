@@ -84,35 +84,51 @@ document.addEventListener('mousedown', function(e) {
 });
 
 
-// --- DETEKTIVNÍ DETEKCE LINEK DLE ÚSEKU ---
-function getEdgeLineData(trainId, st1Name, st2Name, pdfName) {
-    if (!window.routesData) return { name: "Vlak", color: "#94a3b8" };
-    
-    let matchingRoutes = window.routesData.filter(r => r.trainNames && r.trainNames.includes(trainId));
-    
-    if (matchingRoutes.length === 0) return { name: "Vlak", color: "#94a3b8" };
-    if (matchingRoutes.length === 1) {
-        let r = matchingRoutes[0];
-        return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
+// --- DETEKTIVNÍ DETEKCE LINEK DLE ÚSEKU A ZDROJE ---
+function getEdgeLineData(trainId, st1Name, st2Name, pdfName, explicitLine) {
+    // 1. Záchytné lano: Pokud je linka napsaná přímo u konkrétní zastávky v datech
+    if (explicitLine) {
+        return { name: explicitLine, color: window.lineColorsDict?.[explicitLine] || "#94a3b8" };
     }
+    
+    let defaultColor = "#94a3b8";
+    // Očištění názvu souboru (např. "Vlaky_S20.json" -> "S20")
+    let pdfLine = pdfName ? pdfName.replace('.json', '').replace('Vlaky_', '').trim() : "";
 
-    // Vlak má více linek. Pokusíme se logicky odvodit, na které je zrovna teď.
-    for (let r of matchingRoutes) {
-        // 1. Zkusíme podle stanic (pokud vaše data obsahují seznam stanic pro danou linku)
-        let pts = r.stations || r.stops || r.path || r.points || [];
-        if (pts.length > 0 && pts.includes(st1Name) && pts.includes(st2Name)) {
-            return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
+    if (window.routesData) {
+        let matchedRoutes = window.routesData.filter(r => r.trainNames && r.trainNames.includes(trainId));
+        
+        // Pokus A: Extrémně přesná shoda úseku (stanice A i B musí být v seznamu)
+        for (let r of matchedRoutes) {
+            let pts = r.stations || r.stops || r.path || r.points || [];
+            if (pts.includes(st1Name) && pts.includes(st2Name)) {
+                return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || defaultColor };
+            }
         }
         
-        // 2. Heuristika: Zkusíme podle názvu Jízdního řádu (Pokud se soubor jmenuje např. "S20.json")
-        if (pdfName && typeof pdfName === 'string' && pdfName.toUpperCase().includes(r.lineName.toUpperCase())) {
-            return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || "#94a3b8" };
+        // Pokus B: Shoda podle názvu zdrojového souboru (pokud se soubor jmenuje S20, a vlak patří i do S20)
+        for (let r of matchedRoutes) {
+            if (r.lineName.toUpperCase() === pdfLine.toUpperCase()) {
+                return { name: r.lineName, color: window.lineColorsDict?.[r.lineName] || r.color || defaultColor };
+            }
         }
     }
-
-    // Záloha: Pokud v datech chybí jakákoliv návaznost stanic na linky, vrátí první možnou linku.
-    let fallback = matchingRoutes[0];
-    return { name: fallback.lineName, color: window.lineColorsDict?.[fallback.lineName] || fallback.color || "#94a3b8" };
+    
+    // Pokus C: Nemáme linku v routesData, ale soubor se jmenuje např. "Sp" a my pro to máme barvu!
+    if (pdfLine && window.lineColorsDict && window.lineColorsDict[pdfLine]) {
+        return { name: pdfLine, color: window.lineColorsDict[pdfLine] };
+    }
+    
+    // Pokus D: Zoufalecký fallback (prostě vezmi první linku, na kterou vlak patří)
+    if (window.routesData) {
+        let fallback = window.routesData.find(r => r.trainNames && r.trainNames.includes(trainId));
+        if (fallback) {
+            return { name: fallback.lineName, color: window.lineColorsDict?.[fallback.lineName] || fallback.color || defaultColor };
+        }
+    }
+    
+    // Pokus E: Naprosté minimum
+    return { name: pdfLine || "Vlak", color: defaultColor };
 }
 
 function buildPlannerGraph() {
@@ -168,8 +184,9 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
-                        // PŘEDÁVÁME I NÁZEV PDF SOUBORU PRO LEPŠÍ DETEKCI
-                        let lineData = getEdgeLineData(tId, st1.station, st2.station, pdf);
+                        // PŘEDÁVÁ NÁZEV PDF SOUBORU I PŘÍPADNOU EXPLICITNÍ LINKU Z DATABÁZE
+                        let explicitLine = st1.line || t.line || null;
+                        let lineData = getEdgeLineData(tId, st1.station, st2.station, pdf, explicitLine);
 
                         if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
                         
@@ -193,7 +210,7 @@ function buildPlannerGraph() {
     }
 }
 
-// --- ALGORITMUS (1 JÍZDA = 1 BLOK) ---
+// --- ALGORITMUS (1 JÍZDA = 1 BLOK S POLI LINEK) ---
 window.runPlannerSearch = function() {
     buildPlannerGraph();
     
@@ -276,6 +293,7 @@ window.runPlannerSearch = function() {
                         currentRide.endSt = edge.to;
                         currentRide.arrStr = edge.arrStr;
                         
+                        // KDYŽ SE ZMĚNÍ NÁZEV LINKY, PŘIDÁ JI NA SEZNAM!
                         let lastLine = currentRide.lines[currentRide.lines.length - 1];
                         if (lastLine.name !== edge.lineName) {
                             currentRide.lines.push({ name: edge.lineName, color: edge.color });
