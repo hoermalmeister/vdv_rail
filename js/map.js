@@ -53,7 +53,7 @@ window.initializeMap = function() {
         return `<div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; ${pointerStyle}" ${clickAttr}>${segData.lineName}</span></div>
                 <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
                 <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
-                <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímá spojení</div>${destinationsHtml}</div>`;
+                <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímé relace</div>${destinationsHtml}</div>`;
     };
 
     window.openMobileModal = function(nodeA, nodeB, linesOnSegment) {
