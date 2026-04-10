@@ -95,10 +95,8 @@ function processTrainLinesByChangeAt(tId, stops) {
     let routeDef = matchedRoutes[0];
     let segmentLines = [];
     
-    // 1. ZJISTĚNÍ SMĚRU JÍZDY (PROTISMĚR?)
     let isBackward = false;
     if (routeDef.waypoints && routeDef.waypoints.length > 1 && stops.length > 1) {
-        // Podíváme se na první a poslední zastávku fyzického vlaku
         let firstSt = window.removeDiacritics(stops[0].station).toLowerCase().trim();
         let lastSt = window.removeDiacritics(stops[stops.length - 1].station).toLowerCase().trim();
 
@@ -107,16 +105,12 @@ function processTrainLinesByChangeAt(tId, stops) {
         let idxFirst = cleanWaypoints.indexOf(firstSt);
         let idxLast = cleanWaypoints.indexOf(lastSt);
 
-        // Pokud první stanice leží v seznamu AŽ ZA tou poslední, jedeme pozpátku!
         if (idxFirst !== -1 && idxLast !== -1 && idxFirst > idxLast) {
             isBackward = true;
         }
     }
 
-    // 2. NASTAVENÍ VÝCHOZÍ LINKY (podle směru)
-    // Pokud jedeme pozpátku a máme dělenou trasu, začínáme rovnou s tou "cílovou" linkou
     let currentLineName = (isBackward && routeDef.changesTo) ? routeDef.changesTo : routeDef.lineName;
-    
     let currentLineColor = "#94a3b8";
     if (isBackward && routeDef.changesTo) {
         currentLineColor = routeDef.changeColor || window.lineColorsDict?.[routeDef.changesTo] || "#94a3b8";
@@ -124,7 +118,6 @@ function processTrainLinesByChangeAt(tId, stops) {
         currentLineColor = window.lineColorsDict?.[routeDef.lineName] || routeDef.color || "#94a3b8";
     }
 
-    // 3. KROKOVÁNÍ PO STANICÍCH
     for (let i = 0; i < stops.length - 1; i++) {
         let st1 = stops[i].station; 
 
@@ -138,14 +131,11 @@ function processTrainLinesByChangeAt(tId, stops) {
                 isChangingHere = window.removeDiacritics(routeDef.changeAt).toLowerCase().trim() === cleanSt1;
             }
 
-            // DOJELI JSME DO DĚLÍCÍ STANICE
             if (isChangingHere) {
                 if (isBackward) {
-                    // Jedeme pozpátku, takže se "vracíme" k hlavní lince
                     currentLineName = routeDef.lineName;
                     currentLineColor = window.lineColorsDict?.[routeDef.lineName] || routeDef.color || "#94a3b8";
                 } else {
-                    // Jedeme klasicky kupředu, přecházíme na cílovou linku
                     currentLineName = routeDef.changesTo || currentLineName;
                     currentLineColor = routeDef.changeColor || window.lineColorsDict?.[currentLineName] || currentLineColor;
                 }
@@ -239,24 +229,8 @@ function buildPlannerGraph() {
     }
 }
 
-// --- ALGORITMUS ---
-window.runPlannerSearch = function() {
-    buildPlannerGraph();
-    
-    let from = document.getElementById('planner-from').value.trim();
-    let to = document.getElementById('planner-to').value.trim();
-    let dayStr = document.getElementById('planner-day').value;
-    let timeStr = document.getElementById('planner-time').value;
-
-    if (!from || !to) { alert("Zadejte nástupní a cílovou stanici."); return; }
-    if (!window.plannerGraphEdges[from]) { alert(`Stanice "${from}" nebyla nalezena.`); return; }
-
-    let dayNum = DAYS_MAP[dayStr] !== undefined ? DAYS_MAP[dayStr] : 1;
-    let userMins = window.timeToMins(timeStr);
-    if (userMins === 99999) userMins = 0;
-    
-    let userAbsTime = (dayNum - 1) * 1440 + userMins;
-
+// --- IZOLOVANÉ VYHLEDÁVACÍ JÁDRO ---
+window.calculatePath = function(from, to, userAbsTime) {
     let queue = [{ st: from, arrTime: userAbsTime, cost: 0, path: [], lastTrain: null }];
     let bestProfiles = { [from]: [{ cost: 0, arrTime: userAbsTime }] };
     let foundPath = null;
@@ -315,6 +289,7 @@ window.runPlannerSearch = function() {
                             endSt: edge.to, 
                             depStr: edge.depStr, 
                             arrStr: edge.arrStr,
+                            absDep: edge.absDep, // Neocenitelné pro Dřívější/Pozdější tlačítka
                             lines: [{ name: edge.lineName, color: edge.color }] 
                         });
                     } else {
@@ -339,12 +314,82 @@ window.runPlannerSearch = function() {
             }
         }
     }
-
-    renderPlannerResult(foundPath, from, to);
+    return foundPath;
 };
 
-// --- ČISTÝ VYKRESLOVAČ ---
-function renderPlannerResult(result, startSt, endSt) {
+// --- FUNKCE PRO TLAČÍTKA DŘÍVĚJŠÍ / POZDĚJŠÍ ---
+window.lastPlannerResult = null; 
+
+window.searchNext = function() {
+    if (!window.lastPlannerResult) return;
+    let from = window.lastPlannerResult.from;
+    let to = window.lastPlannerResult.to;
+    let currentAbsDep = window.lastPlannerResult.path[0].absDep;
+
+    // Hledáme spoje, které vyjíždí alespoň 1 minutu po aktuálním
+    let nextTime = currentAbsDep + 1;
+    let foundPath = window.calculatePath(from, to, nextTime);
+
+    if (foundPath && foundPath.path.length > 0) {
+        window.renderPlannerResult(foundPath, from, to);
+    } else {
+        alert("Nenalezen žádný další spoj pro zbytek dne.");
+    }
+};
+
+window.searchPrev = function() {
+    if (!window.lastPlannerResult) return;
+    let from = window.lastPlannerResult.from;
+    let to = window.lastPlannerResult.to;
+    let currentAbsDep = window.lastPlannerResult.path[0].absDep;
+
+    let searchTime = currentAbsDep - 60; // Smeták začne zametat 1 hodinu nazpět
+    let attempts = 0;
+    let foundPath = null;
+
+    // Sweeper Loop: Zametá směrem do minulosti, dokud nenajde vlak, co odjel DŘÍVE než ten současný
+    while (attempts < 48) { // Maximální okno 48 hodin do minulosti
+        foundPath = window.calculatePath(from, to, searchTime);
+        
+        if (foundPath && foundPath.path.length > 0 && foundPath.path[0].absDep < currentAbsDep) {
+            break; // BINGO!
+        }
+        searchTime -= 60;
+        attempts++;
+        foundPath = null;
+    }
+
+    if (foundPath && foundPath.path.length > 0) {
+        window.renderPlannerResult(foundPath, from, to);
+    } else {
+        alert("Nenalezen žádný dřívější spoj.");
+    }
+};
+
+window.runPlannerSearch = function() {
+    buildPlannerGraph();
+    
+    let from = document.getElementById('planner-from').value.trim();
+    let to = document.getElementById('planner-to').value.trim();
+    let dayStr = document.getElementById('planner-day').value;
+    let timeStr = document.getElementById('planner-time').value;
+
+    if (!from || !to) { alert("Zadejte nástupní a cílovou stanici."); return; }
+    if (!window.plannerGraphEdges[from]) { alert(`Stanice "${from}" nebyla nalezena.`); return; }
+
+    let dayNum = DAYS_MAP[dayStr] !== undefined ? DAYS_MAP[dayStr] : 1;
+    let userMins = window.timeToMins(timeStr);
+    if (userMins === 99999) userMins = 0;
+    
+    let userAbsTime = (dayNum - 1) * 1440 + userMins;
+
+    let foundPath = window.calculatePath(from, to, userAbsTime);
+    window.renderPlannerResult(foundPath, from, to);
+};
+
+
+// --- VYKRESLOVAČ (Nyní s navigací a synchronizací) ---
+window.renderPlannerResult = function(result, startSt, endSt) {
     const resultsContainer = document.getElementById('planner-results');
     const formContainer = document.getElementById('planner-form');
     
@@ -353,13 +398,41 @@ function renderPlannerResult(result, startSt, endSt) {
         return;
     }
 
+    // Uloží do paměti pro budoucí kliknutí na Tlačítka
+    window.lastPlannerResult = { path: result.path, from: startSt, to: endSt };
+
+    // --- SYNCHRONIZACE FORMULÁŘE ---
+    // Přetočí čas v inputech, aby přesně seděl na právě nalezený spoj
+    let firstAbsDep = result.path[0].absDep;
+    let normalized = firstAbsDep;
+    while (normalized < 0) normalized += (7 * 1440);
+    normalized = normalized % (7 * 1440); 
+    
+    let dayNum = Math.floor(normalized / 1440) + 1;
+    let dayMins = normalized % 1440;
+    
+    let h = Math.floor(dayMins / 60).toString().padStart(2, '0');
+    let m = (dayMins % 60).toString().padStart(2, '0');
+    
+    let dayStr = "Pondělí";
+    for (let key in DAYS_MAP) {
+        if (DAYS_MAP[key] === dayNum && key !== "Státní svátek") {
+            dayStr = key;
+            break;
+        }
+    }
+    
+    document.getElementById('planner-day').value = dayStr;
+    document.getElementById('planner-time').value = `${h}:${m}`;
+    // --------------------------------
+
     formContainer.style.display = 'none'; 
     
     let html = `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 12px;">
         <span style="font-weight: 700; color: #f8fafc; font-size: 14px;">${startSt} ➔ ${endSt}</span>
         <button onclick="document.getElementById('planner-form').style.display='block'; document.getElementById('planner-results').style.display='none';" style="background:none; border:none; color:#38bdf8; cursor:pointer; font-size:12px; font-weight: 600;">Změnit</button>
     </div>
-    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 4px;">`;
+    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 4px;">`;
 
     result.path.forEach((ride, i) => {
         
@@ -389,6 +462,13 @@ function renderPlannerResult(result, startSt, endSt) {
     });
 
     html += `</div>`;
+
+    // --- SPODNÍ NAVIGAČNÍ TLAČÍTKA ---
+    html += `<div style="display: flex; justify-content: space-between; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+        <button onclick="window.searchPrev()" style="background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">◄ Dřívější</button>
+        <button onclick="window.searchNext()" style="background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Pozdější ►</button>
+    </div>`;
+
     resultsContainer.innerHTML = html;
     resultsContainer.style.display = 'block';
-}
+};
