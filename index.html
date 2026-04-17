@@ -15,7 +15,17 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-
+    
+    <div id="disclaimer-modal" class="modal-overlay" style="display: none; z-index: 9999;">
+        <div class="disclaimer-box">
+            <h2 style="color: #fbbf24; margin-top: 0; margin-bottom: 16px; font-size: 18px; text-align: center;">Upozornění – Koncept</h2>
+            <p>Tato aplikace <strong>není oficiální stránkou</strong> Veřejné dopravy Vysočiny (VDV) ani Kraje Vysočina.</p>
+            <p>Rozdělení spojů do jednotlivých linek (např. S20, J1) je pouze <strong>koncepční návrh</strong>.</p>
+            <p>Zobrazené jízdní řády <strong>nejsou aktuálně platné</strong>. Vycházejí pouze z veřejně dostupných dokumentů a zadávacích podmínek pro probíhající výběrová řízení Kraje Vysočina na nové vlakové jednotky.</p>
+            <button onclick="window.closeDisclaimer()" class="planner-btn" style="margin-top: 20px; font-size: 14px;">Rozumím a chci pokračovat</button>
+        </div>
+    </div>
+    
     <div id="map"></div>
 
     <div class="map-overlay">
@@ -124,5 +134,19 @@
     <script src="js/transfers.js" defer></script>
     <script src="js/timetable.js" defer></script>
     <script src="js/planner.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hasSeenDisclaimer = localStorage.getItem('vdv_disclaimer_seen');
+            
+            if (!hasSeenDisclaimer) {
+                document.getElementById('disclaimer-modal').style.display = 'flex';
+            }
+        });
+
+        window.closeDisclaimer = function() {
+            document.getElementById('disclaimer-modal').style.display = 'none';
+            localStorage.setItem('vdv_disclaimer_seen', 'true');
+        };
+    </script>
 </body>
 </html>
