@@ -274,3 +274,29 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     color: #0f172a;
     font-weight: 700;
 }
+
+/* --- DISCLAIMER MODAL --- */
+.disclaimer-box {
+    background: rgba(15, 23, 42, 0.95);
+    padding: 24px 28px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    max-width: 450px;
+    width: 90%;
+    color: #e2e8f0;
+    font-size: 14px;
+    line-height: 1.6;
+    backdrop-filter: blur(10px);
+    box-sizing: border-box;
+}
+
+.disclaimer-box p {
+    margin-top: 0;
+    margin-bottom: 12px;
+    text-align: left;
+}
+
+.disclaimer-box strong {
+    color: #f8fafc;
+}
