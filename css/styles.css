@@ -301,36 +301,36 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     color: #f8fafc;
 }
 
-/* --- VYLEPŠENÉ FORMÁTOVÁNÍ JÍZDNÍCH ŘÁDŮ --- */
 .tt-time-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'JetBrains Mono', 'Courier New', monospace; 
     width: 100%;
+    font-family: 'JetBrains Mono', 'Courier New', monospace; 
 }
 
 .tt-restriction-col {
     width: 25px; 
     text-align: right;
-    margin-right: 4px;
+    margin-right: 6px;
     font-size: 10px;
     font-weight: 700;
     color: #fbbf24;
     display: flex;
-    flex-direction: column; /* Skládání omezení pod sebe */
+    flex-direction: column;
     align-items: flex-end;
+    line-height: 1.1;
 }
 
 .tt-time-val {
-    width: 45px; 
+    width: 50px; 
     text-align: left;
-    display: inline-block;
+    white-space: nowrap;
 }
 
 .station-req-mark {
     color: #fbbf24;
     font-weight: bold;
-    margin-left: 4px;
-    font-size: 14px;
+    margin-left: 6px;
+    font-size: 15px;
 }
