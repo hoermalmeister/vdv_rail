@@ -12,20 +12,20 @@ window.goBackTimetable = function() {
     }
 };
 
-// PŘEDVÝPOČET OMEZENÍ: Zohlední POUZE částečná omezení a zapíše je k odjezdům/příjezdům
+// PŘEDVÝPOČET OMEZENÍ: Počítá POUZE částečná omezení (ty s asteriskem)
 function computeTrainRestrictions(train) {
     train.stops.forEach(s => s.res = { arr: [], dep: [] }); 
     train.noteIsPartial = [];
-    train.partialRanges = [];
 
     if (train.notes && train.notes_validity) {
         train.notes.forEach((note, nIdx) => {
             let validity = train.notes_validity[nIdx];
             let isPartial = false;
-            let startSt = null, endSt = null;
 
             if (validity && validity !== "all") {
                 isPartial = true;
+                let startSt = null, endSt = null;
+                
                 if (Array.isArray(validity) && validity.length >= 2) {
                     startSt = validity[0]; endSt = validity[1];
                 } else if (typeof validity === 'string') {
@@ -36,61 +36,61 @@ function computeTrainRestrictions(train) {
                         startSt = validity.trim(); endSt = validity.trim();
                     }
                 }
-            }
 
-            train.noteIsPartial.push(isPartial);
-            train.partialRanges.push({ startSt, endSt });
-
-            // Pokud je omezení částečné, najdeme přesné indexy odjezdu a příjezdu
-            if (isPartial && startSt && endSt) {
-                let sIdx = -1, eIdx = -1;
-                
-                // Start = Odjezd (hledáme poslední výskyt stanice v datech vlaku)
-                for(let i = 0; i < train.stops.length; i++) {
-                    if(window.removeDiacritics(train.stops[i].station).toLowerCase().trim() === window.removeDiacritics(startSt).toLowerCase().trim()) sIdx = i;
-                }
-                // Konec = Příjezd (hledáme první výskyt stanice v datech vlaku)
-                for(let i = 0; i < train.stops.length; i++) {
-                    if(window.removeDiacritics(train.stops[i].station).toLowerCase().trim() === window.removeDiacritics(endSt).toLowerCase().trim() && eIdx === -1) eIdx = i;
-                }
-
-                if (sIdx !== -1 && eIdx !== -1) {
-                    // Jistota správného směru
-                    if (sIdx > eIdx) { let tmp = sIdx; sIdx = eIdx; eIdx = tmp; }
+                if (startSt && endSt) {
+                    let sIdx = -1, eIdx = -1;
                     
-                    for (let i = sIdx; i <= eIdx; i++) {
-                        if (sIdx === eIdx) {
-                            train.stops[i].res.arr.push(note);
-                            train.stops[i].res.dep.push(note);
-                        } else if (i === sIdx) {
-                            train.stops[i].res.dep.push(note);
-                        } else if (i === eIdx) {
-                            train.stops[i].res.arr.push(note);
-                        } else {
-                            train.stops[i].res.arr.push('‖');
-                            train.stops[i].res.dep.push('‖');
+                    for(let i=0; i<train.stops.length; i++) {
+                        if(window.removeDiacritics(train.stops[i].station).toLowerCase().trim() === window.removeDiacritics(startSt).toLowerCase().trim()) sIdx = i;
+                    }
+                    for(let i=0; i<train.stops.length; i++) {
+                        if(window.removeDiacritics(train.stops[i].station).toLowerCase().trim() === window.removeDiacritics(endSt).toLowerCase().trim() && eIdx === -1) eIdx = i;
+                    }
+
+                    if (sIdx !== -1 && eIdx !== -1) {
+                        if (sIdx > eIdx) { let tmp = sIdx; sIdx = eIdx; eIdx = tmp; }
+                        
+                        for (let i = sIdx; i <= eIdx; i++) {
+                            if (sIdx === eIdx) {
+                                train.stops[i].res.arr.push(note);
+                                train.stops[i].res.dep.push(note);
+                            } else if (i === sIdx) {
+                                train.stops[i].res.dep.push(note);
+                            } else if (i === eIdx) {
+                                train.stops[i].res.arr.push(note);
+                            } else {
+                                train.stops[i].res.arr.push('‖');
+                                train.stops[i].res.dep.push('‖');
+                            }
                         }
                     }
                 }
             }
+            train.noteIsPartial.push(isPartial);
         });
     }
 }
 
-// SPOLEČNÁ FUNKCE PRO ZAROVNÁNÍ (př/od ustupuje omezení)
+// SPOLEČNÁ FUNKCE PRO ZAROVNÁNÍ (Čas vycentrován uprostřed, label vlevo)
 function renderLabelAndTime(resArr, defaultLbl, timeStr, reqStr) {
-    let lblHtml = `<span style="width: 22px; display: inline-block; flex-shrink: 0; margin-right: 6px;"></span>`;
+    let lblHtml = '';
     resArr = resArr.filter(x => x);
 
     if (resArr && resArr.length > 0) {
-        lblHtml = `<span style="color: #fbbf24; font-weight: 700; font-size: 11px; width: 22px; display: inline-block; text-align: right; flex-shrink: 0; margin-right: 6px; line-height: 1.1;">${resArr.join('<br>')}</span>`;
+        lblHtml = `<span style="color: #fbbf24; font-weight: 700; font-size: 11px; line-height: 1.1; display: block;">${resArr.join('<br>')}</span>`;
     } else if (defaultLbl) {
-        lblHtml = `<span style="color: #64748b; font-weight: normal; font-size: 11px; width: 22px; display: inline-block; text-align: right; flex-shrink: 0; margin-right: 6px; line-height: 1.1;">${defaultLbl}</span>`;
+        lblHtml = `<span style="color: #64748b; font-weight: normal; font-size: 11px; line-height: 1.1; display: block;">${defaultLbl}</span>`;
     }
 
-    return `<div style="display: flex; align-items: center;">
-                ${lblHtml}
-                <span style="white-space: nowrap; color: #e2e8f0;">${reqStr}${timeStr || ''}</span>
+    // Grid zajistí absolutní vycentrování času a posunutí štítku vlevo
+    return `<div style="display: grid; grid-template-columns: 24px 1fr 24px; align-items: center; width: 100%;">
+                <div style="text-align: right; padding-right: 6px;">
+                    ${lblHtml}
+                </div>
+                <div style="text-align: center; white-space: nowrap; color: #e2e8f0;">
+                    ${reqStr}${timeStr || ''}
+                </div>
+                <div></div>
             </div>`;
 }
 
@@ -200,13 +200,13 @@ window.openSingleTrain = function(trainId, isBack = false) {
     title.innerHTML = `${backBtnHtml} ${badgeHtml} Vlak ${trainId} ${mainNotesHtml} ${vehicleHtml}`;
     controls.innerHTML = ''; 
 
-    // Oprava překrývání pomocí z-index a neprůhledného pozadí
-    let html = `<table class="modern-tt" style="width: 100%; text-align: left;">
+    // Opravené překrývání pomocí border-collapse a z-indexů
+    let html = `<table class="modern-tt" style="width: 100%; border-collapse: separate; border-spacing: 0;">
         <thead>
             <tr>
-                <th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 11;">Stanice</th>
-                <th class="sticky-top-1" style="background-color: #1e293b; z-index: 10;">Příjezd</th>
-                <th class="sticky-top-1" style="background-color: #1e293b; z-index: 10;">Odjezd</th>
+                <th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 15; position: sticky; top: 0; height: 45px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">Stanice</th>
+                <th class="sticky-top-1" style="background-color: #1e293b; z-index: 12; position: sticky; top: 0; height: 45px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">Příjezd</th>
+                <th class="sticky-top-1" style="background-color: #1e293b; z-index: 12; position: sticky; top: 0; height: 45px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">Odjezd</th>
             </tr>
         </thead>
         <tbody>`;
@@ -250,12 +250,12 @@ window.openSingleTrain = function(trainId, isBack = false) {
         let dResRaw = [...new Set(s.depRes || [])];
 
         let getArrHtml = () => {
-            if (!arr) return '<span style="color:#475569;">-</span>';
+            if (!arr) return renderLabelAndTime([], '', '<span style="color:#475569;">-</span>', '');
             return renderLabelAndTime(aResRaw, 'př', arr, req);
         };
 
         let getDepHtml = () => {
-            if (!dep) return '<span style="color:#475569;">-</span>';
+            if (!dep) return renderLabelAndTime([], '', '<span style="color:#475569;">-</span>', '');
             return renderLabelAndTime(dResRaw, 'od', dep, req);
         };
 
@@ -518,36 +518,36 @@ window.renderTimetableGrid = function(dirKey) {
         if (!anyTrainStops) rowIsGlobalRequest[rIdx] = false;
     });
 
-    let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 11;">Stanice</th>`;
+    // Pevné oddělení border-collapse pro bezchybné z-index vrstvení
+    let html = `<table class="modern-tt" style="border-collapse: separate; border-spacing: 0;"><thead><tr>
+                <th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 15; position: sticky; top: 0; height: 50px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">Stanice</th>`;
     
-    // Názvy vlaků fixně na dva řádky, s neprůhledným pozadím pro scrollování
+    // Názvy vlaků fixně s backgroundem pro odstínění scrollování (z-index 12)
     trains.forEach(t => {
         let parts = t.id.split(' ');
         let type = parts[0] || '';
         let num = parts.slice(1).join(' ') || '';
-        html += `<th class="sticky-top-1" style="vertical-align: bottom; height: 45px; padding: 6px 4px; background-color: #1e293b; z-index: 10;">
+        html += `<th class="sticky-top-1" style="vertical-align: bottom; height: 50px; padding: 6px 4px; background-color: #1e293b; z-index: 12; position: sticky; top: 0; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <div onclick="window.openSingleTrain('${t.id}'); event.stopPropagation();" style="cursor: pointer; line-height: 1.2; display: inline-block;" title="Zobrazit detail vlaku">
                         <div>${type}</div>
                         <div>${num}</div>
                     </div>
                  </th>`;
     });
-    html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2" style="background-color: #1e293b; z-index: 11;"></th>`;
     
-    // Asterisky pro částečná omezení
+    // Druhý řádek - omezení (z-index 11, zasouvá se POD první řádek)
+    html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2" style="background-color: #1e293b; z-index: 14; position: sticky; top: 50px; height: 26px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);"></th>`;
+    
     trains.forEach(t => {
         let nHtml = [];
         (t.notes || []).forEach((n, i) => {
-            let isPartial = t.noteIsPartial && t.noteIsPartial[i];
-            if (isPartial) {
-                let range = t.partialRanges[i];
-                let titleStr = (range.startSt && range.endSt) ? `Úsek: ${range.startSt} - ${range.endSt}` : 'Částečné omezení';
-                nHtml.push(`<span class="tt-note-badge" title="${titleStr}" style="cursor:help;">${n}*</span>`);
+            if (t.noteIsPartial[i]) {
+                nHtml.push(`<span class="tt-note-badge" title="Omezení neplatí pro celou trasu vlaku" style="cursor:help;">${n}*</span>`);
             } else {
                 nHtml.push(`<span class="tt-note-badge">${n}</span>`);
             }
         });
-        html += `<th class="sticky-top-2" style="background-color: #1e293b; z-index: 10;">${nHtml.join(' ')}</th>`;
+        html += `<th class="sticky-top-2" style="background-color: #1e293b; z-index: 11; position: sticky; top: 50px; height: 26px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">${nHtml.join(' ')}</th>`;
     });
     html += `</tr></thead><tbody>`;
 
@@ -582,13 +582,23 @@ window.renderTimetableGrid = function(dirKey) {
                 let aResRaw = [...new Set(sList[0].res.arr || [])];
                 let dResRaw = [...new Set(sList[sList.length - 1].res.dep || [])];
 
-                // Jediný čas nebo příjezd shodný s odjezdem
-                if ((sList.length === 1 && !sList[0].arrival && !sList[0].departure) || (aT === dT)) {
+                // Průjezd s omezením
+                let isPassing = !aT && !dT;
+                
+                if (isPassing) {
+                    let combinedRes = [...new Set([...aResRaw, ...dResRaw])];
+                    if (combinedRes.length > 0) {
+                        html += `<td>${renderLabelAndTime(combinedRes, '', '<span style="color:#475569;">|</span>', '')}</td>`;
+                    } else {
+                        html += `<td>${renderLabelAndTime([], '', '<span style="color:#475569;">|</span>', '')}</td>`;
+                    }
+                } else if ((sList.length === 1 && !sList[0].arrival && !sList[0].departure) || (aT === dT)) {
+                    // Jeden čas
                     let combinedRes = [...new Set([...aResRaw, ...dResRaw])];
                     let tToPrint = aT || sList[0].time || '';
                     html += `<td>${renderLabelAndTime(combinedRes, '', tToPrint, aReq)}</td>`;
                 } else {
-                    // MÁME PŘÍJEZD A ODJEZD - logické "př/od" nebo jejich přepsání značkou
+                    // MÁME PŘÍJEZD A ODJEZD
                     html += `<td>
                         <div style="display: flex; flex-direction: column; gap: 2px;">
                             ${renderLabelAndTime(aResRaw, 'př', aT, aReq)}
@@ -603,11 +613,11 @@ window.renderTimetableGrid = function(dirKey) {
                     if (t.notes && t.notes_validity) {
                         t.notes.forEach((n, idx) => {
                             if (t.noteIsPartial && t.noteIsPartial[idx]) {
-                                let range = t.partialRanges[idx];
-                                if (range.startSt && range.endSt) {
+                                let v = t.notes_validity[idx];
+                                if (Array.isArray(v)) {
                                     let sMIdx = -1, eMIdx = -1;
-                                    for(let i=0; i<masterStations.length; i++) if(window.removeDiacritics(masterStations[i]).toLowerCase().trim() === window.removeDiacritics(range.startSt).toLowerCase().trim()) sMIdx = i;
-                                    for(let i=0; i<masterStations.length; i++) if(window.removeDiacritics(masterStations[i]).toLowerCase().trim() === window.removeDiacritics(range.endSt).toLowerCase().trim() && eMIdx === -1) eMIdx = i;
+                                    for(let i=0; i<masterStations.length; i++) if(window.removeDiacritics(masterStations[i]).toLowerCase().trim() === window.removeDiacritics(v[0]).toLowerCase().trim()) sMIdx = i;
+                                    for(let i=0; i<masterStations.length; i++) if(window.removeDiacritics(masterStations[i]).toLowerCase().trim() === window.removeDiacritics(v[1]).toLowerCase().trim() && eMIdx === -1) eMIdx = i;
                                     
                                     if (sMIdx !== -1 && eMIdx !== -1) {
                                         let min = Math.min(sMIdx, eMIdx);
@@ -624,7 +634,7 @@ window.renderTimetableGrid = function(dirKey) {
                     if (restrictedPass) {
                         html += `<td>${renderLabelAndTime(['‖'], '', '<span style="color:#475569;">|</span>', '')}</td>`;
                     } else {
-                        html += `<td><span style="color:#475569;">|</span></td>`;
+                        html += `<td>${renderLabelAndTime([], '', '<span style="color:#475569;">|</span>', '')}</td>`;
                     }
                 } else {
                     html += `<td></td>`;
