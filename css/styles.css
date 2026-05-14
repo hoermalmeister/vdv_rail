@@ -301,29 +301,39 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     color: #f8fafc;
 }
 
-.tt-time-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    font-family: 'JetBrains Mono', 'Courier New', monospace; 
-}
-
-.tt-restriction-col {
-    width: 25px; 
-    text-align: right;
-    margin-right: 6px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #fbbf24;
+/* --- ČISTÉ ZAROVNÁNÍ ČASŮ A OMEZENÍ --- */
+.tt-cell-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    line-height: 1.1;
+    gap: 2px;
 }
 
-.tt-time-val {
-    width: 50px; 
+.tt-row-flex {
+    display: flex;
+    align-items: center; /* Zarovnání na střed řádku */
+}
+
+/* Sloupeček vyhrazený POUZE pro omezení (žluté) nebo "př/od" (šedé) */
+.tt-res-col {
+    width: 22px;
+    text-align: right;
+    margin-right: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.tt-res-col.is-note {
+    color: #fbbf24; /* Žlutá pro zkratky omezení */
+}
+
+.tt-res-col.is-label {
+    color: #64748b; /* Šedá pro "př" a "od" */
+    font-weight: normal;
+}
+
+/* Obyčejný sloupec pro čas - zarovnán doleva, původní font! */
+.tt-time-col {
     text-align: left;
     white-space: nowrap;
 }
@@ -333,4 +343,13 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     font-weight: bold;
     margin-left: 6px;
     font-size: 15px;
+}
+
+/* Neprůhledná hlavička - oprava překrývání při scrollování */
+.tt-table thead th {
+    background-color: #1e293b; 
+    z-index: 10;
+}
+.tt-table thead th.sticky-col {
+    z-index: 11; /* Levý horní roh musí být úplně nejvýš */
 }
