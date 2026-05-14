@@ -151,6 +151,7 @@ function processTrainLinesByChangeAt(tId, stops) {
     return segmentLines;
 }
 
+// --- VÝSTAVBA GRAFU S PŘESNÝM SEGMENTOVÁNÍM OMEZENÍ ---
 function buildPlannerGraph() {
     window.plannerGraphEdges = {}; 
     const WEEK_MINS = 7 * 1440;
@@ -167,19 +168,63 @@ function buildPlannerGraph() {
             let originMins = window.timeToMins(originTimeStr);
             if (originMins === 99999) continue;
 
-            let opNotes = (t.notes || []).filter(n => window.transferLogicData[n]);
-            let days = new Set();
-            if (opNotes.length === 0) {
-                [0, 1, 2, 3, 4, 5, 6, 7].forEach(d => days.add(d)); 
-            } else {
-                opNotes.forEach(n => {
-                    (window.transferLogicData[n] || []).forEach(d => days.add(parseInt(d)));
-                });
-            }
-
             let segmentLinesArray = processTrainLinesByChangeAt(tId, t.stops);
 
-            days.forEach(day => {
+            // 1. Předvýpočet kalendářních dnů pro KAŽDÝ ÚSEK (Segment) zvlášť
+            let segmentValidDays = [];
+            for (let i = 0; i < t.stops.length - 1; i++) {
+                let segNotes = [];
+                if (t.notes) {
+                    t.notes.forEach((note, nIdx) => {
+                        if (!window.transferLogicData[note]) return; // Zajímají nás jen kalendářní poznámky
+                        
+                        let validity = (t.notes_validity && t.notes_validity[nIdx]) ? t.notes_validity[nIdx] : "all";
+                        if (validity === "all") {
+                            segNotes.push(note);
+                        } else {
+                            let startSt = null, endSt = null;
+                            if (Array.isArray(validity) && validity.length >= 2) {
+                                startSt = validity[0]; endSt = validity[1];
+                            } else if (typeof validity === 'string') {
+                                let parts = validity.split('-');
+                                if (parts.length >= 2) { startSt = parts[0].trim(); endSt = parts[1].trim(); }
+                                else { startSt = validity.trim(); endSt = validity.trim(); }
+                            }
+                            
+                            if (startSt && endSt) {
+                                let cleanStart = window.removeDiacritics(startSt).toLowerCase().trim();
+                                let cleanEnd = window.removeDiacritics(endSt).toLowerCase().trim();
+                                
+                                let sIdx = -1, eIdx = -1;
+                                for(let j=0; j<t.stops.length; j++) if(window.removeDiacritics(t.stops[j].station).toLowerCase().trim() === cleanStart) sIdx = j;
+                                for(let j=0; j<t.stops.length; j++) if(window.removeDiacritics(t.stops[j].station).toLowerCase().trim() === cleanEnd && eIdx === -1) eIdx = j;
+                                
+                                if (sIdx !== -1 && eIdx !== -1) {
+                                    if (sIdx > eIdx) { let tmp = sIdx; sIdx = eIdx; eIdx = tmp; }
+                                    // Spadá aktuální úsek (i až i+1) do zasaženého pásma omezení?
+                                    if (i >= sIdx && i < eIdx) {
+                                        segNotes.push(note);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                let days = new Set();
+                if (segNotes.length === 0) {
+                    // Pokud pro tento úsek neplatí žádné omezení, jede se vždy
+                    [0, 1, 2, 3, 4, 5, 6, 7].forEach(d => days.add(d)); 
+                } else {
+                    segNotes.forEach(n => {
+                        (window.transferLogicData[n] || []).forEach(d => days.add(parseInt(d)));
+                    });
+                }
+                segmentValidDays.push(days);
+            }
+
+            // 2. Tvorba grafu (Iterujeme přes dny od 0 do 7)
+            [0, 1, 2, 3, 4, 5, 6, 7].forEach(day => {
                 let baseAbsOrigin_W0 = (day - 1) * 1440 + originMins;
                 let baseAbsOrigin_W1 = baseAbsOrigin_W0 + WEEK_MINS;
 
@@ -205,20 +250,23 @@ function buildPlannerGraph() {
                         let absDep = currentAbsMins + (depMins - lastStopMins);
                         let absArr = currentAbsMins + (arrMins - lastStopMins);
 
-                        let lineData = segmentLinesArray[i]; 
+                        // PŘIDÁ DO GRAFU POUZE POKUD TENTO ÚSEK V DANÝ DEN OPRAVDU JEDE!
+                        if (segmentValidDays[i].has(day)) {
+                            let lineData = segmentLinesArray[i]; 
 
-                        if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
-                        
-                        window.plannerGraphEdges[st1.station].push({
-                            to: st2.station,
-                            absDep: absDep,
-                            absArr: absArr,
-                            trainId: tId,
-                            lineName: lineData.name,
-                            color: lineData.color,
-                            depStr: depStr,
-                            arrStr: arrStr
-                        });
+                            if (!window.plannerGraphEdges[st1.station]) window.plannerGraphEdges[st1.station] = [];
+                            
+                            window.plannerGraphEdges[st1.station].push({
+                                to: st2.station,
+                                absDep: absDep,
+                                absArr: absArr,
+                                trainId: tId,
+                                lineName: lineData.name,
+                                color: lineData.color,
+                                depStr: depStr,
+                                arrStr: arrStr
+                            });
+                        }
 
                         lastStopMins = arrMins;
                         currentAbsMins = absArr;
@@ -289,7 +337,7 @@ window.calculatePath = function(from, to, userAbsTime) {
                             endSt: edge.to, 
                             depStr: edge.depStr, 
                             arrStr: edge.arrStr,
-                            absDep: edge.absDep, // Neocenitelné pro Dřívější/Pozdější tlačítka
+                            absDep: edge.absDep,
                             lines: [{ name: edge.lineName, color: edge.color }] 
                         });
                     } else {
@@ -326,7 +374,6 @@ window.searchNext = function() {
     let to = window.lastPlannerResult.to;
     let currentAbsDep = window.lastPlannerResult.path[0].absDep;
 
-    // Hledáme spoje, které vyjíždí alespoň 1 minutu po aktuálním
     let nextTime = currentAbsDep + 1;
     let foundPath = window.calculatePath(from, to, nextTime);
 
@@ -343,16 +390,15 @@ window.searchPrev = function() {
     let to = window.lastPlannerResult.to;
     let currentAbsDep = window.lastPlannerResult.path[0].absDep;
 
-    let searchTime = currentAbsDep - 60; // Smeták začne zametat 1 hodinu nazpět
+    let searchTime = currentAbsDep - 60; 
     let attempts = 0;
     let foundPath = null;
 
-    // Sweeper Loop: Zametá směrem do minulosti, dokud nenajde vlak, co odjel DŘÍVE než ten současný
-    while (attempts < 48) { // Maximální okno 48 hodin do minulosti
+    while (attempts < 48) { 
         foundPath = window.calculatePath(from, to, searchTime);
         
         if (foundPath && foundPath.path.length > 0 && foundPath.path[0].absDep < currentAbsDep) {
-            break; // BINGO!
+            break; 
         }
         searchTime -= 60;
         attempts++;
@@ -388,7 +434,7 @@ window.runPlannerSearch = function() {
 };
 
 
-// --- VYKRESLOVAČ (Nyní s navigací a synchronizací) ---
+// --- VYKRESLOVAČ ---
 window.renderPlannerResult = function(result, startSt, endSt) {
     const resultsContainer = document.getElementById('planner-results');
     const formContainer = document.getElementById('planner-form');
@@ -398,11 +444,8 @@ window.renderPlannerResult = function(result, startSt, endSt) {
         return;
     }
 
-    // Uloží do paměti pro budoucí kliknutí na Tlačítka
     window.lastPlannerResult = { path: result.path, from: startSt, to: endSt };
 
-    // --- SYNCHRONIZACE FORMULÁŘE ---
-    // Přetočí čas v inputech, aby přesně seděl na právě nalezený spoj
     let firstAbsDep = result.path[0].absDep;
     let normalized = firstAbsDep;
     while (normalized < 0) normalized += (7 * 1440);
@@ -424,7 +467,6 @@ window.renderPlannerResult = function(result, startSt, endSt) {
     
     document.getElementById('planner-day').value = dayStr;
     document.getElementById('planner-time').value = `${h}:${m}`;
-    // --------------------------------
 
     formContainer.style.display = 'none'; 
     
@@ -463,7 +505,6 @@ window.renderPlannerResult = function(result, startSt, endSt) {
 
     html += `</div>`;
 
-    // --- SPODNÍ NAVIGAČNÍ TLAČÍTKA ---
     html += `<div style="display: flex; justify-content: space-between; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
         <button onclick="window.searchPrev()" style="background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">◄ Dřívější</button>
         <button onclick="window.searchNext()" style="background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Pozdější ►</button>
