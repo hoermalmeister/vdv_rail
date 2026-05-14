@@ -294,7 +294,7 @@ window.openSingleTrain = function(trainId, isBack = false) {
                     trHtml += `</div>`;
                     
                     html += `<tr class="aux-row">
-                        <td colspan="3" style="padding: 8px 12px; background-color: #141b2d;">
+                        <td colspan="3" style="padding: 8px 12px; background-color: #141b2d; text-align: left;">
                             <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Možné přestupy:</div>
                             ${trHtml}
                         </td>
