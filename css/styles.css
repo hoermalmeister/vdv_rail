@@ -301,46 +301,36 @@ table.modern-tt tbody tr.aux-row:hover td.sticky-col { background-color: #212f45
     color: #f8fafc;
 }
 
-.tt-table thead th {
-    min-width: 80px;
-    height: 45px; /* Fixní výška pro 2 řádky */
-    vertical-align: bottom;
-    padding: 8px 4px;
-    line-height: 1.2;
-    white-space: normal;
-    word-break: break-word;
-}
-
+/* --- VYLEPŠENÉ FORMÁTOVÁNÍ JÍZDNÍCH ŘÁDŮ --- */
 .tt-time-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'JetBrains Mono', monospace; /* Monospace pro dokonalý align */
+    font-family: 'JetBrains Mono', 'Courier New', monospace; 
     width: 100%;
 }
 
 .tt-restriction-col {
-    width: 25px; /* Fixní šířka pro zkratky (např. wd, 15) */
+    width: 25px; 
     text-align: right;
-    margin-right: 6px;
+    margin-right: 4px;
     font-size: 10px;
     font-weight: 700;
     color: #fbbf24;
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Skládání omezení pod sebe */
     align-items: flex-end;
 }
 
 .tt-time-val {
-    width: 45px;
+    width: 45px; 
     text-align: left;
     display: inline-block;
 }
 
-/* Žluté x u názvu stanice */
 .station-req-mark {
     color: #fbbf24;
-    margin-left: 4px;
     font-weight: bold;
+    margin-left: 4px;
     font-size: 14px;
 }
