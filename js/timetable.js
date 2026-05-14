@@ -12,45 +12,74 @@ window.goBackTimetable = function() {
     }
 };
 
-// PŘEDVÝPOČET OMEZENÍ - Řeší přesné umístění k odjezdu / příjezdu
+// PŘEDVÝPOČET OMEZENÍ: Počítá POUZE částečná omezení (ty s asteriskem)
 function computeTrainRestrictions(train) {
-    train.stops.forEach(s => s.res = []); 
-    
+    train.stops.forEach(s => s.res = { arr: [], dep: [] }); 
+    train.noteIsPartial = [];
+
     if (train.notes && train.notes_validity) {
         train.notes.forEach((note, nIdx) => {
             let validity = train.notes_validity[nIdx];
-            let startIdx = 0;
-            let endIdx = train.stops.length - 1;
+            let isPartial = false;
 
-            if (validity !== "all" && Array.isArray(validity)) {
-                let startSt = validity[0];
-                let endSt = validity[1];
-                let sIdx = -1, eIdx = -1;
+            if (validity && validity !== "all") {
+                isPartial = true;
+                let startSt = null, endSt = null;
                 
-                // Start omezení: Chceme "Odjezd", tedy POSLEDNÍ výskyt stanice v poli
-                for(let i = 0; i < train.stops.length; i++) if(train.stops[i].station === startSt) sIdx = i;
-                // Konec omezení: Chceme "Příjezd", tedy PRVNÍ výskyt stanice v poli
-                for(let i = 0; i < train.stops.length; i++) if(train.stops[i].station === endSt && eIdx === -1) eIdx = i;
-
-                if (sIdx !== -1 && eIdx !== -1 && sIdx <= eIdx) {
-                    startIdx = sIdx;
-                    endIdx = eIdx;
-                } else {
-                    startIdx = -1; endIdx = -1;
+                if (Array.isArray(validity) && validity.length >= 2) {
+                    startSt = validity[0]; endSt = validity[1];
                 }
-            }
 
-            if (startIdx !== -1 && endIdx !== -1) {
-                for (let i = startIdx; i <= endIdx; i++) {
-                    if (i === startIdx || i === endIdx) {
-                        train.stops[i].res.push(note);
-                    } else {
-                        train.stops[i].res.push('‖');
+                if (startSt && endSt) {
+                    let sIdx = -1, eIdx = -1;
+                    
+                    // Začátek omezení se váže na odjezd (poslední výskyt stanice v datech vlaku)
+                    for(let i=0; i<train.stops.length; i++) {
+                        if(window.removeDiacritics(train.stops[i].station).toLowerCase().trim() === window.removeDiacritics(startSt).toLowerCase().trim()) sIdx = i;
+                    }
+                    // Konec omezení se váže na příjezd (první výskyt stanice v datech vlaku)
+                    for(let i=0; i<train.stops.length; i++) {
+                        if(window.removeDiacritics(train.stops[i].station).toLowerCase().trim() === window.removeDiacritics(endSt).toLowerCase().trim() && eIdx === -1) eIdx = i;
+                    }
+
+                    if (sIdx !== -1 && eIdx !== -1) {
+                        if (sIdx > eIdx) { let tmp = sIdx; sIdx = eIdx; eIdx = tmp; }
+                        
+                        for (let i = sIdx; i <= eIdx; i++) {
+                            if (sIdx === eIdx) {
+                                train.stops[i].res.arr.push(note);
+                                train.stops[i].res.dep.push(note);
+                            } else if (i === sIdx) {
+                                train.stops[i].res.dep.push(note);
+                            } else if (i === eIdx) {
+                                train.stops[i].res.arr.push(note);
+                            } else {
+                                train.stops[i].res.arr.push('‖');
+                                train.stops[i].res.dep.push('‖');
+                            }
+                        }
                     }
                 }
             }
+            train.noteIsPartial.push(isPartial);
         });
     }
+}
+
+// Funkce pro vykreslení integrovaného sloupce "label/omezení" a "čas"
+function renderLabelAndTime(resArr, defaultLbl, timeStr, reqStr) {
+    let lblHtml = `<span style="width: 22px; display: inline-block; flex-shrink: 0; margin-right: 6px;"></span>`;
+    
+    if (resArr && resArr.length > 0) {
+        lblHtml = `<span style="color: #fbbf24; font-weight: 700; font-size: 11px; width: 22px; display: inline-block; text-align: right; flex-shrink: 0; margin-right: 6px;">${resArr.join(',')}</span>`;
+    } else if (defaultLbl) {
+        lblHtml = `<span style="color: #64748b; font-weight: normal; font-size: 11px; width: 22px; display: inline-block; text-align: right; flex-shrink: 0; margin-right: 6px;">${defaultLbl}</span>`;
+    }
+
+    return `<div style="display: flex; align-items: center;">
+                ${lblHtml}
+                <span style="white-space: nowrap;">${reqStr}${timeStr || ''}</span>
+            </div>`;
 }
 
 // --- FEATURE: Individual Train Timetable ---
@@ -159,9 +188,9 @@ window.openSingleTrain = function(trainId, isBack = false) {
     let html = `<table class="modern-tt" style="width: 100%; text-align: left;">
         <thead>
             <tr>
-                <th class="sticky-col sticky-top-1">Stanice</th>
-                <th class="sticky-top-1" style="text-align: center;">Příjezd</th>
-                <th class="sticky-top-1" style="text-align: center;">Odjezd</th>
+                <th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 10;">Stanice</th>
+                <th class="sticky-top-1" style="background-color: #1e293b; z-index: 10;">Příjezd</th>
+                <th class="sticky-top-1" style="background-color: #1e293b; z-index: 10;">Odjezd</th>
             </tr>
         </thead>
         <tbody>`;
@@ -177,8 +206,8 @@ window.openSingleTrain = function(trainId, isBack = false) {
                 arrival: currentStop.arrival || currentStop.time || '',
                 departure: nextStop.departure || nextStop.time || '',
                 request_stop: currentStop.request_stop || nextStop.request_stop,
-                arrRes: currentStop.res,
-                depRes: nextStop.res
+                arrRes: currentStop.res.arr,
+                depRes: nextStop.res.dep
             });
             i++; 
         } else {
@@ -187,8 +216,8 @@ window.openSingleTrain = function(trainId, isBack = false) {
                 arrival: currentStop.arrival || currentStop.time || '',
                 departure: currentStop.departure || currentStop.time || '',
                 request_stop: currentStop.request_stop,
-                arrRes: currentStop.res,
-                depRes: currentStop.res
+                arrRes: currentStop.res.arr,
+                depRes: currentStop.res.dep
             });
         }
     }
@@ -201,29 +230,13 @@ window.openSingleTrain = function(trainId, isBack = false) {
         if (idx === 0) arr = ''; 
         if (idx === mergedStops.length - 1) dep = ''; 
 
-        // Skládání HTML pro příjezd a odjezd včetně omezení
-        let getArrHtml = () => {
-            if (!arr) return '<span style="color:#475569;">-</span>';
-            let resStr = s.arrRes && s.arrRes.length > 0 ? s.arrRes.join('<br>') : '';
-            if(resStr) {
-                return `<div class="tt-row-flex" style="justify-content: center;"><div class="tt-res-col is-note">${resStr}</div><div class="tt-time-col">${req}${arr}</div></div>`;
-            }
-            return `<div class="tt-row-flex" style="justify-content: center;"><div class="tt-res-col is-label"></div><div class="tt-time-col">${req}${arr}</div></div>`;
-        };
-
-        let getDepHtml = () => {
-            if (!dep) return '<span style="color:#475569;">-</span>';
-            let resStr = s.depRes && s.depRes.length > 0 ? s.depRes.join('<br>') : '';
-            if(resStr) {
-                return `<div class="tt-row-flex" style="justify-content: center;"><div class="tt-res-col is-note">${resStr}</div><div class="tt-time-col">${req}${dep}</div></div>`;
-            }
-            return `<div class="tt-row-flex" style="justify-content: center;"><div class="tt-res-col is-label"></div><div class="tt-time-col">${req}${dep}</div></div>`;
-        };
+        let arrHtml = arr ? renderLabelAndTime(s.arrRes, '', arr, req) : '<span style="color:#475569;">-</span>';
+        let depHtml = dep ? renderLabelAndTime(s.depRes, '', dep, req) : '<span style="color:#475569;">-</span>';
 
         html += `<tr>
             <td class="sticky-col">${s.station}</td>
-            <td style="text-align: center;">${getArrHtml()}</td>
-            <td style="text-align: center;">${getDepHtml()}</td>
+            <td>${arrHtml}</td>
+            <td>${depHtml}</td>
         </tr>`;
 
         if (idx > 0 && arr) {
@@ -328,7 +341,6 @@ window.openTimetable = function(lineName, isBack = false, restoreDirKey = null) 
                 let tClone = JSON.parse(JSON.stringify(tDict[tId]));
                 tClone.id = tId;
                 
-                // Vypočteme omezení před řezáním linky!
                 computeTrainRestrictions(tClone);
 
                 let matchedRoute = window.routesData.find(r => (r.lineName === lineName || r.changesTo === lineName) && r.trainNames && r.trainNames.includes(tId));
@@ -455,13 +467,6 @@ window.renderTimetableGrid = function(dirKey) {
     const content = document.getElementById('tt-content');
     const footer = document.getElementById('tt-footer');
 
-    let usedNotesInView = new Set();
-    trains.forEach(t => {
-        t.stops.forEach(s => {
-            (s.res || []).forEach(n => { if (n !== '‖') usedNotesInView.add(n); });
-        });
-    });
-    
     trains.sort((a, b) => {
         let shared = masterStations.find(st => a.stops.some(s => s.station === st) && b.stops.some(s => s.station === st));
         if (shared) {
@@ -487,36 +492,35 @@ window.renderTimetableGrid = function(dirKey) {
         if (!anyTrainStops) rowIsGlobalRequest[rIdx] = false;
     });
 
-    let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1">Stanice</th>`;
+    let html = `<table class="modern-tt"><thead><tr><th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 11;">Stanice</th>`;
     
-    // Názvy vlaků vynuceně na dvou řádcích
+    // Názvy vlaků na dvou řádcích s neprůhledným pozadím
     trains.forEach(t => {
         let parts = t.id.split(' ');
         let type = parts[0] || '';
         let num = parts.slice(1).join(' ') || '';
-        html += `<th class="sticky-top-1" style="vertical-align: bottom; height: 45px; padding: 6px 4px;">
+        html += `<th class="sticky-top-1" style="vertical-align: bottom; height: 45px; padding: 6px 4px; background-color: #1e293b; z-index: 10;">
                     <div onclick="window.openSingleTrain('${t.id}'); event.stopPropagation();" style="cursor: pointer; line-height: 1.2; display: inline-block;" title="Zobrazit detail vlaku">
                         <div>${type}</div>
                         <div>${num}</div>
                     </div>
                  </th>`;
     });
-    html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2"></th>`;
+    html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2" style="background-color: #1e293b; z-index: 11;"></th>`;
     
-    // Zápis asterisku *, pokud omezení neplatí plošně (all)
+    // Asterisky pro částečná omezení s title hover
     trains.forEach(t => {
         let nHtml = [];
         (t.notes || []).forEach((n, i) => {
-            if (usedNotesInView.has(n)) {
-                let v = (t.notes_validity && t.notes_validity[i]) ? t.notes_validity[i] : null;
-                if (!v || v === "all") {
-                    nHtml.push(`<span class="tt-note-badge">${n}</span>`);
-                } else {
-                    nHtml.push(`<span class="tt-note-badge" title="Platí jen pro úsek">${n}*</span>`);
-                }
+            if (t.noteIsPartial[i]) {
+                let v = t.notes_validity[i];
+                let titleStr = Array.isArray(v) ? `Platí v úseku: ${v[0]} - ${v[1]}` : `Omezení: ${v}`;
+                nHtml.push(`<span class="tt-note-badge" title="${titleStr}" style="cursor:help;">${n}*</span>`);
+            } else {
+                nHtml.push(`<span class="tt-note-badge">${n}</span>`);
             }
         });
-        html += `<th class="sticky-top-2">${nHtml.join(' ')}</th>`;
+        html += `<th class="sticky-top-2" style="background-color: #1e293b; z-index: 10;">${nHtml.join(' ')}</th>`;
     });
     html += `</tr></thead><tbody>`;
 
@@ -532,7 +536,7 @@ window.renderTimetableGrid = function(dirKey) {
     }
 
     masterStations.forEach((station, rIdx) => {
-        let reqMark = rowIsGlobalRequest[rIdx] ? `<span class="station-req-mark">×</span>` : '';
+        let reqMark = rowIsGlobalRequest[rIdx] ? `<span style="color:#fbbf24; font-weight:bold; margin-left:6px; font-size:15px;">×</span>` : '';
         html += `<tr><td class="sticky-col">${station}${reqMark}</td>`;
         
         trains.forEach(t => {
@@ -545,57 +549,44 @@ window.renderTimetableGrid = function(dirKey) {
                 let aT = sList[0].arrival || sList[0].time;
                 let dT = sList[sList.length - 1].departure || sList[sList.length - 1].time;
 
-                let aReq = (!rowIsGlobalRequest[rIdx] && sList[0].request_stop) ? `<span class="tt-req" style="margin-right:4px; color:#fbbf24; font-weight:bold;">×</span>` : '';
-                let dReq = (!rowIsGlobalRequest[rIdx] && sList[sList.length - 1].request_stop) ? `<span class="tt-req" style="margin-right:4px; color:#fbbf24; font-weight:bold;">×</span>` : '';
+                let aReq = (!rowIsGlobalRequest[rIdx] && sList[0].request_stop) ? `<span style="color:#fbbf24; font-weight:bold; margin-right:4px;">×</span>` : '';
+                let dReq = (!rowIsGlobalRequest[rIdx] && sList[sList.length - 1].request_stop) ? `<span style="color:#fbbf24; font-weight:bold; margin-right:4px;">×</span>` : '';
 
-                let aResRaw = sList[0].res || [];
-                let dResRaw = sList[sList.length - 1].res || [];
+                let aResRaw = sList[0].res.arr || [];
+                let dResRaw = sList[sList.length - 1].res.dep || [];
 
-                // Jednoduchý čas nebo příjezd shodný s odjezdem
+                // Jediný čas
                 if ((sList.length === 1 && !sList[0].arrival && !sList[0].departure) || (aT === dT)) {
                     let combinedRes = [...new Set([...aResRaw, ...dResRaw])];
-                    let resStr = combinedRes.length > 0 ? combinedRes.join('<br>') : '';
                     let tToPrint = aT || sList[0].time || '';
-
-                    html += `<td>
-                        <div class="tt-row-flex">
-                            <div class="tt-res-col is-note">${resStr}</div>
-                            <div class="tt-time-col"><span class="tt-time">${aReq}${tToPrint}</span></div>
-                        </div>
-                    </td>`;
+                    html += `<td>${renderLabelAndTime(combinedRes, '', tToPrint, aReq)}</td>`;
                 } else {
-                    // MÁME PŘÍJEZD A ODJEZD - Chceme "př" a "od", POKUD je nenahradí omezení
-                    let arrResStr = aResRaw.length > 0 ? `<span class="tt-res-col is-note">${aResRaw.join('<br>')}</span>` : `<span class="tt-res-col is-label">př</span>`;
-                    let depResStr = dResRaw.length > 0 ? `<span class="tt-res-col is-note">${dResRaw.join('<br>')}</span>` : `<span class="tt-res-col is-label">od</span>`;
-
+                    // Příjezd i Odjezd - Př a Od ustupují značkám
                     html += `<td>
-                        <div class="tt-cell-wrapper">
-                            <div class="tt-row-flex">
-                                ${arrResStr}
-                                <div class="tt-time-col"><span class="tt-time">${aReq}${aT}</span></div>
-                            </div>
-                            <div class="tt-row-flex">
-                                ${depResStr}
-                                <div class="tt-time-col"><span class="tt-time">${dReq}${dT}</span></div>
-                            </div>
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            ${renderLabelAndTime(aResRaw, 'př', aT, aReq)}
+                            ${renderLabelAndTime(dResRaw, 'od', dT, dReq)}
                         </div>
                     </td>`;
                 }
             } else {
-                // VLAK PROJÍŽDÍ 
+                // Průjezd stanicí
                 let restrictedPass = false;
                 if (cIdx > fIdx && cIdx < lIdx) {
                     if (t.notes && t.notes_validity) {
                         t.notes.forEach((n, idx) => {
                             let v = t.notes_validity[idx];
-                            if (v !== "all" && Array.isArray(v)) {
-                                let startMIdx = masterStations.indexOf(v[0]);
-                                let endMIdx = masterStations.lastIndexOf(v[1]);
-                                if (startMIdx !== -1 && endMIdx !== -1 && cIdx >= startMIdx && cIdx <= endMIdx) {
-                                    restrictedPass = true;
+                            let isP = t.noteIsPartial[idx];
+                            if (isP && Array.isArray(v)) {
+                                let sMIdx = -1, eMIdx = -1;
+                                for(let i=0; i<masterStations.length; i++) if(window.removeDiacritics(masterStations[i]).toLowerCase().trim() === window.removeDiacritics(v[0]).toLowerCase().trim()) sMIdx = i;
+                                for(let i=0; i<masterStations.length; i++) if(window.removeDiacritics(masterStations[i]).toLowerCase().trim() === window.removeDiacritics(v[1]).toLowerCase().trim() && eMIdx === -1) eMIdx = i;
+                                
+                                if (sMIdx !== -1 && eMIdx !== -1) {
+                                    let min = Math.min(sMIdx, eMIdx);
+                                    let max = Math.max(sMIdx, eMIdx);
+                                    if (cIdx > min && cIdx < max) restrictedPass = true;
                                 }
-                            } else if (v === "all") {
-                                restrictedPass = true;
                             }
                         });
                     }
@@ -603,14 +594,9 @@ window.renderTimetableGrid = function(dirKey) {
 
                 if (cIdx > fIdx && cIdx < lIdx) {
                     if (restrictedPass) {
-                        html += `<td>
-                            <div class="tt-row-flex">
-                                <div class="tt-res-col is-note">‖</div>
-                                <div class="tt-time-col" style="color: #475569;">|</div>
-                            </div>
-                        </td>`;
+                        html += `<td>${renderLabelAndTime(['‖'], '', '<span style="color:#475569;">|</span>', '')}</td>`;
                     } else {
-                        html += `<td><span class="tt-pass">|</span></td>`;
+                        html += `<td><span style="color:#475569;">|</span></td>`;
                     }
                 } else {
                     html += `<td></td>`;
@@ -635,8 +621,12 @@ window.renderTimetableGrid = function(dirKey) {
     content.innerHTML = html;
 
     let fHtml = `<div class="legend-grid">`;
-    usedNotesInView.forEach(note => fHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${window.notesDict[note] || "Neznámá poznámka"}</div>`);
-    fHtml += `<div class="note-item" style="margin-left: auto;"><span class="note-sym tt-req" style="font-size:16px;">×</span> Zastávka na znamení</div></div>`;
+    // U částečných přidáme legendu
+    let allUsedNotes = new Set();
+    trains.forEach(t => (t.notes||[]).forEach(n => allUsedNotes.add(n)));
+    allUsedNotes.forEach(note => fHtml += `<div class="note-item"><span class="note-sym">${note}</span> ${window.notesDict[note] || "Neznámá poznámka"}</div>`);
+    
+    fHtml += `<div class="note-item" style="margin-left: auto;"><span style="color:#fbbf24; font-weight:bold; margin-right:4px; font-size:16px;">×</span> Zastávka na znamení</div></div>`;
     footer.innerHTML = fHtml;
 };
 
