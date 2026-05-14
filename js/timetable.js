@@ -239,7 +239,10 @@ window.openSingleTrain = function(trainId, isBack = false) {
     }
 
     mergedStops.forEach((s, idx) => {
-        let req = s.request_stop ? `<span style="color:#fbbf24; font-weight:bold; margin-right:4px;">×</span>` : '';
+        // TADY JE ZMĚNA: Přesunutí křížku přímo k názvu stanice, z časů zmizel
+        let reqStationMark = s.request_stop ? `<span style="color:#fbbf24; font-weight:bold; margin-left:6px; font-size:15px;">×</span>` : '';
+        let reqTimeMark = ''; 
+        
         let arr = s.arrival;
         let dep = s.departure;
         
@@ -251,16 +254,18 @@ window.openSingleTrain = function(trainId, isBack = false) {
 
         let getArrHtml = () => {
             if (!arr) return renderLabelAndTime([], '', '<span style="color:#475569;">-</span>', '');
-            return renderLabelAndTime(aResRaw, 'př', arr, req);
+            // Místo 'př' je zde prázdný string ''
+            return renderLabelAndTime(aResRaw, '', arr, reqTimeMark);
         };
 
         let getDepHtml = () => {
             if (!dep) return renderLabelAndTime([], '', '<span style="color:#475569;">-</span>', '');
-            return renderLabelAndTime(dResRaw, 'od', dep, req);
+            // Místo 'od' je zde prázdný string ''
+            return renderLabelAndTime(dResRaw, '', dep, reqTimeMark);
         };
 
         html += `<tr>
-            <td class="sticky-col">${s.station}</td>
+            <td class="sticky-col">${s.station}${reqStationMark}</td>
             <td>${getArrHtml()}</td>
             <td>${getDepHtml()}</td>
         </tr>`;
@@ -518,11 +523,9 @@ window.renderTimetableGrid = function(dirKey) {
         if (!anyTrainStops) rowIsGlobalRequest[rIdx] = false;
     });
 
-    // Pevné oddělení border-collapse pro bezchybné z-index vrstvení
     let html = `<table class="modern-tt" style="border-collapse: separate; border-spacing: 0;"><thead><tr>
                 <th class="sticky-col sticky-top-1" style="background-color: #1e293b; z-index: 15; position: sticky; top: 0; height: 50px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);">Stanice</th>`;
     
-    // Názvy vlaků fixně s backgroundem pro odstínění scrollování (z-index 12)
     trains.forEach(t => {
         let parts = t.id.split(' ');
         let type = parts[0] || '';
@@ -535,7 +538,6 @@ window.renderTimetableGrid = function(dirKey) {
                  </th>`;
     });
     
-    // Druhý řádek - omezení (z-index 11, zasouvá se POD první řádek)
     html += `</tr><tr class="tt-note-row"><th class="sticky-col sticky-top-2" style="background-color: #1e293b; z-index: 14; position: sticky; top: 50px; height: 26px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1);"></th>`;
     
     trains.forEach(t => {
@@ -582,7 +584,6 @@ window.renderTimetableGrid = function(dirKey) {
                 let aResRaw = [...new Set(sList[0].res.arr || [])];
                 let dResRaw = [...new Set(sList[sList.length - 1].res.dep || [])];
 
-                // Průjezd s omezením
                 let isPassing = !aT && !dT;
                 
                 if (isPassing) {
@@ -593,12 +594,10 @@ window.renderTimetableGrid = function(dirKey) {
                         html += `<td>${renderLabelAndTime([], '', '<span style="color:#475569;">|</span>', '')}</td>`;
                     }
                 } else if ((sList.length === 1 && !sList[0].arrival && !sList[0].departure) || (aT === dT)) {
-                    // Jeden čas
                     let combinedRes = [...new Set([...aResRaw, ...dResRaw])];
                     let tToPrint = aT || sList[0].time || '';
                     html += `<td>${renderLabelAndTime(combinedRes, '', tToPrint, aReq)}</td>`;
                 } else {
-                    // MÁME PŘÍJEZD A ODJEZD
                     html += `<td>
                         <div style="display: flex; flex-direction: column; gap: 2px;">
                             ${renderLabelAndTime(aResRaw, 'př', aT, aReq)}
@@ -607,7 +606,6 @@ window.renderTimetableGrid = function(dirKey) {
                     </td>`;
                 }
             } else {
-                // VLAK V DATABÁZI STANICI NEMÁ (Zjišťování, zda jede přes "‖" omezení)
                 let restrictedPass = false;
                 if (cIdx > fIdx && cIdx < lIdx) {
                     if (t.notes && t.notes_validity) {
@@ -634,7 +632,7 @@ window.renderTimetableGrid = function(dirKey) {
                     if (restrictedPass) {
                         html += `<td>${renderLabelAndTime(['‖'], '', '<span style="color:#475569;">|</span>', '')}</td>`;
                     } else {
-                        html += `<td>${renderLabelAndTime([], '', '<span style="color:#475569;">|</span>', '')}</td>`;
+                        html += `<td><span style="color:#475569;">|</span></td>`;
                     }
                 } else {
                     html += `<td></td>`;
