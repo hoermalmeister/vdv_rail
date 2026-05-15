@@ -161,7 +161,20 @@ window.initializeMap = function() {
 
         linesOnSegment.forEach((segData) => {
             const offset = currentOffset + (segData.thickness / 2);
-            const latlngs = [ window.stationsData[segData.nodeA], window.stationsData[segData.nodeB] ];
+            let latlngs;
+            let trackKey = [segData.nodeA, segData.nodeB].sort().join('|');
+
+            if (window.tracksData && window.tracksData[trackKey]) {
+                  // Vezme přesnou křivku kolejí z BRouteru
+                latlngs = JSON.parse(JSON.stringify(window.tracksData[trackKey]));
+                // Zabrání křížení čar - pokud jdeme z B do A, otočíme souřadnice
+                if (segData.nodeA > segData.nodeB) {
+                    latlngs.reverse();
+                }
+            } else {
+                 // Záložní varianta, kdyby v souboru trasa chyběla (rovná čára)
+                latlngs = [ window.stationsData[segData.nodeA], window.stationsData[segData.nodeB] ];
+            }
 
             L.polyline(latlngs, { color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
             L.polyline(latlngs, { color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
