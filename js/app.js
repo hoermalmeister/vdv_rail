@@ -30,12 +30,13 @@ window.timeToMins = function(timeStr) {
 // --- DATA INITIALIZATION ---
 async function loadMapData() {
     try {
-        const [stationsRes, routesRes, ttRes, notesRes, transferLogicRes] = await Promise.all([
+        const [stationsRes, routesRes, ttRes, notesRes, transferLogicRes, tracksRes] = await Promise.all([
             fetch('stations.json'), 
             fetch('routes.json'), 
             fetch('timetables_master.json'), 
             fetch('notes_dict.json'),
-            fetch('transfer_logic.json') 
+            fetch('transfer_logic.json'),
+            fetch('tracks.json').catch(() => ({ json: () => ({}) })) // Ošetření, kdyby soubor chyběl
         ]);
         
         window.stationsData = await stationsRes.json();
@@ -43,6 +44,7 @@ async function loadMapData() {
         window.timetablesData = await ttRes.json();
         window.notesDict = await notesRes.json();
         window.transferLogicData = await transferLogicRes.json();
+        window.tracksData = await tracksRes.json();
         
         if (typeof window.initializeMap === "function") {
             window.initializeMap();
