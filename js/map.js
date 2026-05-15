@@ -1,206 +1,278 @@
 window.initializeMap = function() {
-    // Pole pro dynamickou úpravu rozestupů při zoomování
-    window.mapOffsetLines = [];
-
-    // 1. Kontrola kontejneru
+    // 1. SELF-HEALING CHECK: If the map div is missing, create it automatically
     let mapDiv = document.getElementById('map');
     if (!mapDiv) {
+        console.warn("Map container was missing from HTML! Auto-creating it.");
         mapDiv = document.createElement('div');
         mapDiv.id = 'map';
+        // Put it at the very top of the body
         document.body.insertBefore(mapDiv, document.body.firstChild);
     }
 
-    // 2. Úklid staré mapy
+    // 2. CLEANUP: Destroy ghost maps, ensuring it's an actual Leaflet object first!
     if (window.map && typeof window.map.remove === 'function' && window.map._leaflet_id) {
         window.map.off();
         window.map.remove();
     }
+    // Wipe the variable clean just in case it was clinging to the HTML element
     window.map = null; 
 
-    // 3. Inicializace mapy
+    // 3. Initialize the map safely
     const map = L.map('map').setView([49.4, 15.6], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
     window.map = map;
+    window.mapOffsetLines = []; 
 
     const segmentsMap = {};
     const stationLines = {};
     
-    // --- TVOJE PŮVODNÍ LOGIKA SEGMENTŮ A TLOUŠŤKY ---
     window.routesData.forEach(route => {
-        if (route.color && !window.lineColorsDict[route.lineName]) {
-            window.lineColorsDict[route.lineName] = route.color;
+        if (route.color && !window.lineColorsDict[route.lineName]) window.lineColorsDict[route.lineName] = route.color;
+    });
+    window.routesData.forEach(route => {
+        if (route.changesTo && !window.lineColorsDict[route.changesTo]) window.lineColorsDict[route.changesTo] = route.changeColor || route.color;
+    });
+
+    window.generateTooltipHtml = function(segData, isClick = false) {
+        let destinationsHtml = "";
+        for (const [routeLabel, data] of Object.entries(segData.destinations)) {
+            const uniqueTrains = [...new Set(data.trains)].sort();
+            
+            let trainsHtml = "";
+            if (isClick) {
+                let clickableTrains = uniqueTrains.map(t => `<span onclick="window.openSingleTrain('${t}'); event.stopPropagation();" style="cursor: pointer; white-space: nowrap;">${t}</span>`).join(', ');
+                trainsHtml = `<div class="dest-trains">${clickableTrains}</div>`;
+            }
+            
+            destinationsHtml += `<div class="dest-group"><div class="dest-row"><span>${routeLabel}</span><span class="dest-right"><span class="dest-count">${data.count}</span></span></div>${trainsHtml}</div>`;
+        }
+        const badgeTextColor = window.getContrastColor(segData.color);
+        
+        const pointerStyle = isClick ? 'cursor: pointer;' : 'pointer-events: none;';
+        const clickAttr = isClick ? `onclick="window.openTimetable('${segData.lineName}')"` : '';
+        
+        return `<div class="tooltip-header"><span class="line-badge" style="background-color: ${segData.color}; color: ${badgeTextColor}; ${pointerStyle}" ${clickAttr}>${segData.lineName}</span></div>
+                <div class="tooltip-segment">${segData.nodeA} ↔ ${segData.nodeB}</div>
+                <div class="tooltip-connections">Celkem na úseku: ${segData.connections}</div>
+                <div class="tooltip-destinations"><div style="font-size:11px; text-transform:uppercase; color:#64748b; margin-bottom:4px; letter-spacing:0.5px;">Přímé relace</div>${destinationsHtml}</div>`;
+    };
+
+    window.openMobileModal = function(nodeA, nodeB, linesOnSegment) {
+        const modal = document.getElementById('mobile-modal');
+        const content = document.getElementById('mobile-modal-content');
+
+        let buttonsHtml = linesOnSegment.map((seg, idx) => {
+            const textColor = window.getContrastColor(seg.color);
+            let endpointsText = "Zobrazit spojení...";
+            if (window.lineEndpoints[seg.lineName]) {
+                const data = window.lineEndpoints[seg.lineName];
+                const endA = data.start < data.end ? data.start : data.end;
+                const endB = data.start < data.end ? data.end : data.start;
+                endpointsText = `${endA} ↔ ${endB}`;
+            }
+            return `<button class="modal-line-btn" onclick="window.showMobileDetails(${idx})">
+                        <span class="line-badge" style="background-color: ${seg.color}; color: ${textColor}; min-width:35px;">${seg.lineName}</span>
+                        <span class="btn-text" style="font-weight: 600;">${endpointsText}</span>
+                    </button>`;
+        }).join('');
+
+        content.innerHTML = `<div class="modal-header"><h3>${nodeA} ↔ ${nodeB}</h3><button onclick="window.closeModal()" class="close-btn">&times;</button></div>
+                             <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Na tomto úseku jezdí více linek. Kterou chcete zobrazit?</p>
+                             <div class="modal-line-list">${buttonsHtml}</div>`;
+        window.currentSegmentLinesData = linesOnSegment;
+        modal.style.display = 'flex';
+    };
+
+    window.showMobileDetails = function(idx, isSingle = false) {
+        const segData = window.currentSegmentLinesData[idx];
+        const content = document.getElementById('mobile-modal-content');
+        const detailedHtml = window.generateTooltipHtml(segData, true);
+
+        let headerHtml = isSingle 
+            ? `<div class="modal-header" style="justify-content: flex-end;"><button onclick="window.closeModal()" class="close-btn">&times;</button></div>` 
+            : `<div class="modal-header"><button onclick="window.openMobileModal('${segData.nodeA}', '${segData.nodeB}', window.currentSegmentLinesData)" class="back-btn">← Zpět</button><button onclick="window.closeModal()" class="close-btn">&times;</button></div>`;
+
+        content.innerHTML = headerHtml + detailedHtml;
+        document.getElementById('mobile-modal').style.display = 'flex';
+    };
+
+    window.closeModal = function() { document.getElementById('mobile-modal').style.display = 'none'; };
+
+    window.routesData.forEach(route => {
+        route.connections = route.trainNames ? route.trainNames.length : 0;
+        const firstStation = route.waypoints[0];
+        const lastStation = route.waypoints[route.waypoints.length - 1];
+
+        if (route.changeAt && route.changesTo) {
+            const changeIndex = route.waypoints.indexOf(route.changeAt);
+            if (changeIndex !== -1) {
+                if (!window.lineEndpoints[route.lineName] || changeIndex + 1 > window.lineEndpoints[route.lineName].length) window.lineEndpoints[route.lineName] = { length: changeIndex + 1, start: firstStation, end: route.changeAt, color: route.color };
+                if (!window.lineEndpoints[route.changesTo] || route.waypoints.length - changeIndex > window.lineEndpoints[route.changesTo].length) window.lineEndpoints[route.changesTo] = { length: route.waypoints.length - changeIndex, start: route.changeAt, end: lastStation, color: route.changeColor || route.color };
+            }
+        } else {
+            if (!window.lineEndpoints[route.lineName] || route.waypoints.length > window.lineEndpoints[route.lineName].length) window.lineEndpoints[route.lineName] = { length: route.waypoints.length, start: firstStation, end: lastStation, color: route.color };
         }
 
-        if (route.waypoints && route.waypoints.length > 1) {
-            let lineName = route.lineName;
-            let routeColor = route.color || '#3388ff';
-            let connections = route.trainNames ? route.trainNames.length : 0;
-            
-            // Tloušťka podle tvého vzorce
-            const thickness = (connections * 0.22) + 2.5;
-            const finalThickness = thickness > 12 ? 12 : thickness;
+        let currentLineName = route.lineName;
+        let currentColor = route.color;
+        let hasChanged = false;
 
-            for (let j = 0; j < route.waypoints.length - 1; j++) {
-                let st1 = route.waypoints[j];
-                let st2 = route.waypoints[j + 1];
-                let pt1 = window.stationsData[st1];
-                let pt2 = window.stationsData[st2];
+        for (let i = 0; i < route.waypoints.length - 1; i++) {
+            const st1 = route.waypoints[i], st2 = route.waypoints[i + 1];
+            if (!window.stationsData[st1] || !window.stationsData[st2]) continue;
 
-                if (pt1 && pt2) {
-                    if (!stationLines[st1]) stationLines[st1] = new Set();
-                    if (!stationLines[st2]) stationLines[st2] = new Set();
-                    stationLines[st1].add(lineName);
-                    stationLines[st2].add(lineName);
+            if (route.changeAt && (st1 === route.changeAt || hasChanged)) { currentLineName = route.changesTo; currentColor = route.changeColor || route.color; hasChanged = true; }
 
-                    let segmentId = [st1, st2].sort().join('-');
-                    if (!segmentsMap[segmentId]) segmentsMap[segmentId] = [];
-                    
-                    let lineOffsetIndex = segmentsMap[segmentId].length;
-                    segmentsMap[segmentId].push(lineName);
-
-                    // Výpočet odsazení (střídavě vlevo/vpravo)
-                    let baseOffset = 0;
-                    if (lineOffsetIndex > 0) {
-                        const step = Math.ceil(lineOffsetIndex / 2);
-                        baseOffset = (lineOffsetIndex % 2 === 1) ? step * 7 : step * -7;
-                    }
-
-                    // --- GEOMETRIE TRATI (BRouter) ---
-                    let latlngs;
-                    let trackKey = [st1, st2].sort().join('|');
-
-                    if (window.tracksData && window.tracksData[trackKey]) {
-                        latlngs = JSON.parse(JSON.stringify(window.tracksData[trackKey]));
-                        // Otočení směru, aby offset seděl a linky se nekřížily
-                        if (st1 > st2) latlngs.reverse();
-                    } else {
-                        latlngs = [pt1, pt2];
-                    }
-
-                    // Dynamický faktor pro zoom (proti smyčkám)
-                    let z = map.getZoom();
-                    let zoomFactor = z >= 11 ? 1 : (z === 10 ? 0.5 : (z === 9 ? 0.2 : 0));
-                    let currentOffset = baseOffset * zoomFactor;
-
-                    // --- TVOJE TŘI VRSTVY (Black, Color, Hitbox) ---
-                    
-                    // 1. Černé pozadí
-                    const bgLine = L.polylineOffset(latlngs, {
-                        color: '#000000',
-                        weight: finalThickness + 2.5,
-                        opacity: 0.8,
-                        offset: currentOffset,
-                        lineJoin: 'round',
-                        lineCap: 'round'
-                    }).addTo(map);
-
-                    // 2. Viditelná čára
-                    const mainLine = L.polylineOffset(latlngs, {
-                        color: routeColor,
-                        weight: finalThickness,
-                        opacity: 1,
-                        offset: currentOffset,
-                        lineJoin: 'round',
-                        lineCap: 'round'
-                    }).addTo(map);
-
-                    // 3. Hitbox pro klikání
-                    const clickLine = L.polylineOffset(latlngs, {
-                        color: 'transparent',
-                        weight: Math.max(finalThickness + 10, 20),
-                        opacity: 0,
-                        offset: currentOffset,
-                        lineJoin: 'round',
-                        lineCap: 'round',
-                        cursor: 'pointer'
-                    }).addTo(map);
-
-                    // Uložení pro zoomend event
-                    bgLine.baseOffset = baseOffset;
-                    mainLine.baseOffset = baseOffset;
-                    clickLine.baseOffset = baseOffset;
-                    window.mapOffsetLines.push(bgLine, mainLine, clickLine);
-
-                    // Tooltipy a Interakce (tvoje původní)
-                    clickLine.bindTooltip(`<b>${lineName}</b>`, { className: 'custom-tooltip', sticky: true });
-                    
-                    clickLine.on('click', (e) => {
-                        L.DomEvent.stopPropagation(e);
-                        if (window.isMobile) {
-                            window.showMobileSegmentOptions(segmentId, new Set(segmentsMap[segmentId]), routeColor);
-                        } else {
-                            window.openTimetable(lineName);
-                        }
-                    });
-
-                    clickLine.on('mouseover', () => {
-                        mainLine.setStyle({ weight: finalThickness + 2 });
-                        bgLine.setStyle({ weight: finalThickness + 4.5 });
-                    });
-                    clickLine.on('mouseout', () => {
-                        mainLine.setStyle({ weight: finalThickness });
-                        bgLine.setStyle({ weight: finalThickness + 2.5 });
-                    });
-                }
+            let segmentRouteLabel = "";
+            if (route.changesTo && route.changeAt) {
+                if (!hasChanged) segmentRouteLabel = `${firstStation} ↔ ${route.changeAt} <span class="line-badge" style="background-color: ${route.changeColor}; color: ${window.getContrastColor(route.changeColor||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px;">${route.changesTo}</span> ↔ ${lastStation}`;
+                else segmentRouteLabel = `${firstStation} ↔ <span class="line-badge" style="background-color: ${route.color}; color: ${window.getContrastColor(route.color||'#fff')}; margin: 0 4px; padding: 1px 6px; font-size: 11px;">${route.lineName}</span> ${route.changeAt} ↔ ${lastStation}`;
+            } else {
+                const endA = firstStation < lastStation ? firstStation : lastStation;
+                const endB = firstStation < lastStation ? lastStation : firstStation;
+                segmentRouteLabel = `${endA} ↔ ${endB}`;
             }
+
+            if (!stationLines[st1]) stationLines[st1] = new Set();
+            if (!stationLines[st2]) stationLines[st2] = new Set();
+            stationLines[st1].add(currentLineName);
+            stationLines[st2].add(currentLineName);
+
+            const isReversed = (window.stationsData[st1][1] > window.stationsData[st2][1]) || (window.stationsData[st1][1] === window.stationsData[st2][1] && window.stationsData[st1][0] > window.stationsData[st2][0]);
+            const nodeA = isReversed ? st2 : st1;
+            const nodeB = isReversed ? st1 : st2;
+            const segmentKey = `${nodeA}---${nodeB}`;
+
+            if (!segmentsMap[segmentKey]) segmentsMap[segmentKey] = {};
+            if (!segmentsMap[segmentKey][currentLineName]) segmentsMap[segmentKey][currentLineName] = { lineName: currentLineName, connections: 0, color: currentColor, nodeA: nodeA, nodeB: nodeB, destinations: {} };
+
+            segmentsMap[segmentKey][currentLineName].connections += route.connections;
+            if (!segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel]) segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel] = { count: 0, trains: [] };
+            segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel].count += route.connections;
+            if (route.trainNames) segmentsMap[segmentKey][currentLineName].destinations[segmentRouteLabel].trains.push(...route.trainNames);
         }
     });
 
-    // --- TVOJE PŮVODNÍ IKONY STANIC ---
-    for (let station in window.stationsData) {
-        if (stationLines[station]) {
-            let coords = window.stationsData[station];
-            L.circleMarker(coords, {
-                radius: 4.5,
-                fillColor: '#1e293b',
-                color: '#38bdf8',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 1
-            }).addTo(map)
-              .bindTooltip(station, { direction: 'top', offset: [0, -10], className: 'station-tooltip' })
-              .on('click', (e) => {
-                  L.DomEvent.stopPropagation(e);
-                  if (typeof window.showStationDepartures === 'function') {
-                      window.showStationDepartures(station);
-                  }
-              });
-        }
-    }
+    Object.entries(segmentsMap).forEach(([segKey, linesObj]) => {
+        const linesOnSegment = Object.values(linesObj).sort((a, b) => a.lineName.localeCompare(b.lineName));
+        let totalThickness = 0; const gap = 2;
+        linesOnSegment.forEach(seg => { seg.thickness = (seg.connections * 0.22) + 2.5; totalThickness += seg.thickness; });
+        totalThickness += (linesOnSegment.length - 1) * gap;
+        let currentOffset = -totalThickness / 2;
 
-    // --- DYNAMICKÝ OFFSET PŘI ZOOMU ---
-    map.on('zoomend', function() {
-        let z = map.getZoom();
-        let factor = z >= 11 ? 1 : (z === 10 ? 0.5 : (z === 9 ? 0.2 : 0));
-        window.mapOffsetLines.forEach(line => {
-            if (line.setOffset) line.setOffset(line.baseOffset * factor);
+        linesOnSegment.forEach((segData) => {
+            const baseOffset = currentOffset + (segData.thickness / 2);
+            let zoomFactor = map.getZoom() >= 11 ? 1 : (map.getZoom() === 10 ? 0.5 : (map.getZoom() === 9 ? 0.2 : 0));
+            const offset = baseOffset * zoomFactor;
+
+            // 1. Zjištění správné geometrie (Křivka z BRouteru vs. Přímka)
+            let latlngs;
+            let trackKey = [segData.nodeA, segData.nodeB].sort().join('|');
+            
+            if (window.tracksData && window.tracksData[trackKey]) {
+                latlngs = JSON.parse(JSON.stringify(window.tracksData[trackKey]));
+                
+                // Matematické ověření směru (aby se offset nepřetočil)
+                let ptA = window.stationsData[segData.nodeA];
+                let ptStart = latlngs[0];
+                let ptEnd = latlngs[latlngs.length - 1];
+                let distToStart = Math.pow(ptStart[0] - ptA[0], 2) + Math.pow(ptStart[1] - ptA[1], 2);
+                let distToEnd = Math.pow(ptEnd[0] - ptA[0], 2) + Math.pow(ptEnd[1] - ptA[1], 2);
+                
+                if (distToEnd < distToStart) {
+                    latlngs.reverse();
+                }
+            } else {
+                latlngs = [ window.stationsData[segData.nodeA], window.stationsData[segData.nodeB] ];
+            }
+
+            // 2. Vykreslení vrstev přes plugin L.polylineOffset
+            const bgLine = L.polylineOffset(latlngs, { color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
+            const mainLine = L.polylineOffset(latlngs, { color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
+
+            const hitBoxWeight = window.isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
+            const interactionLine = L.polylineOffset(latlngs, { color: 'transparent', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset }).addTo(map);
+
+            // 3. Uložení pro dynamický zoom
+            bgLine.baseOffset = baseOffset;
+            mainLine.baseOffset = baseOffset;
+            interactionLine.baseOffset = baseOffset;
+            window.mapOffsetLines.push(bgLine, mainLine, interactionLine);
+
+            const tooltipContentHover = window.generateTooltipHtml(segData, false);
+            const tooltipContentClick = window.generateTooltipHtml(segData, true);
+
+            if (!window.isMobile) {
+                interactionLine.bindTooltip(tooltipContentHover, { sticky: true });
+                interactionLine.bindPopup(tooltipContentClick, { className: 'custom-popup' });
+                interactionLine.on('popupopen', function() { this.closeTooltip(); this.unbindTooltip(); });
+                interactionLine.on('popupclose', function() { this.bindTooltip(tooltipContentHover, { sticky: true }); });
+            } else {
+                interactionLine.on('click', function() {
+                    if (linesOnSegment.length === 1) {
+                        window.currentSegmentLinesData = linesOnSegment;
+                        window.showMobileDetails(0, true);
+                    } else {
+                        window.openMobileModal(segData.nodeA, segData.nodeB, linesOnSegment);
+                    }
+                });
+            }
+            currentOffset += segData.thickness + gap;
         });
     });
 
-    // --- TVOJE PŮVODNÍ LEGENDA (Snippet) ---
+    for (const [name, coords] of Object.entries(window.stationsData)) {
+        const passingLines = stationLines[name] ? Array.from(stationLines[name]).sort() : [];
+        const isJunction = passingLines.length > 1;
+        let rowsHtml = '';
+        for (let i = 0; i < passingLines.length; i += 3) {
+            const chunk = passingLines.slice(i, i + 3);
+            const badgesHtml = chunk.map(line => {
+                const bgColor = window.lineColorsDict[line] || '#cccccc';
+                return `<span class="line-badge" style="background-color: ${bgColor}; color: ${window.getContrastColor(bgColor)}; margin: 2px; cursor: pointer;" onclick="window.openTimetable('${line}')">${line}</span>`;
+            }).join('');
+            rowsHtml += `<div style="display: flex; justify-content: center; width: 100%; margin-bottom: 2px;">${badgesHtml}</div>`;
+        }
+
+        const tooltipHtml = `<div style="text-align: center; min-width: 80px;"><div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">${name}</div></div>`;
+        const clickPopupHtml = `<div style="text-align: center; min-width: 120px; pointer-events: auto;"><div style="font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${name}</div><div style="display: flex; flex-direction: column; align-items: center;">${rowsHtml}</div><div style="font-size: 10px; color: #94a3b8; margin-top: 8px;">Kliknutím na linku otevřete JŘ</div></div>`;
+
+        const marker = L.circleMarker(coords, { 
+            radius: isJunction ? 5.5 : 3.5, 
+            fillColor: "#ffffff", 
+            color: "#1a1a1a", 
+            weight: isJunction ? 3 : 2, 
+            opacity: 1, 
+            fillOpacity: 1,
+            interactive: !window.isMobile 
+        }).addTo(map);
+
+        let interactiveMarker = marker;
+
+        if (window.isMobile) {
+            interactiveMarker = L.circleMarker(coords, { radius: 25, color: 'transparent', fillColor: 'transparent', interactive: true }).addTo(map);
+            interactiveMarker.bringToFront();
+        }
+
+        if (!window.isMobile) {
+            marker.bindTooltip(tooltipHtml, { className: 'station-tooltip', direction: 'top', offset: [0, isJunction ? -10 : -8] });
+        }
+        
+        interactiveMarker.bindPopup(clickPopupHtml, { className: 'custom-popup station-popup' });
+    }
+
     const legend = L.control({position: 'bottomleft'});
     legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'map-legend');
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.disableScrollPropagation(div);
 
-        // Zjednodušená příprava pro legendu
         let html = `<div class="legend-title" id="legend-toggle"><span>Linky a konečné stanice</span><span class="legend-toggle-icon">▼</span></div><div class="legend-content" id="legend-content">`;
-        
-        // Sesbíráme linky z routesData pro legendu
-        const legendLines = {};
-        window.routesData.forEach(r => {
-            if (!legendLines[r.lineName]) {
-                legendLines[r.lineName] = { color: r.color, start: r.waypoints[0], end: r.waypoints[r.waypoints.length-1] };
-            }
-        });
-
-        Object.keys(legendLines).sort().forEach(line => {
-            const data = legendLines[line];
-            html += `<div class="legend-row">
-                <span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px; cursor: pointer;" onclick="window.openTimetable('${line}')">${line}</span>
-                <span class="legend-stops">${data.start} ↔ ${data.end}</span>
-            </div>`;
+        Object.keys(window.lineEndpoints).sort().forEach(line => {
+            const data = window.lineEndpoints[line];
+            const endA = data.start < data.end ? data.start : data.end;
+            const endB = data.start < data.end ? data.end : data.start;
+            html += `<div class="legend-row"><span class="line-badge" style="background-color: ${data.color}; color: ${window.getContrastColor(data.color)}; min-width: 32px; cursor: pointer;" onclick="window.openTimetable('${line}')">${line}</span><span class="legend-stops">${endA} ↔ ${endB}</span></div>`;
         });
         html += '</div>';
         div.innerHTML = html;
@@ -208,15 +280,22 @@ window.initializeMap = function() {
         setTimeout(() => {
             const titleBtn = div.querySelector('#legend-toggle');
             const contentDiv = div.querySelector('#legend-content');
-            if (titleBtn && contentDiv) {
-                titleBtn.addEventListener('click', () => {
-                    titleBtn.classList.toggle('collapsed');
-                    contentDiv.style.display = titleBtn.classList.contains('collapsed') ? 'none' : 'block';
-                });
-            }
-        }, 100);
-
+            titleBtn.addEventListener('click', () => {
+                titleBtn.classList.toggle('collapsed');
+                contentDiv.classList.toggle('collapsed');
+            });
+        }, 0);
         return div;
     };
+    map.on('zoomend', function() {
+        if (!window.mapOffsetLines) return;
+        let z = map.getZoom();
+        let factor = z >= 11 ? 1 : (z === 10 ? 0.5 : (z === 9 ? 0.2 : 0));
+        window.mapOffsetLines.forEach(line => {
+            if (typeof line.setOffset === 'function') {
+                line.setOffset(line.baseOffset * factor);
+            }
+        });
+    });
     legend.addTo(map);
 };
