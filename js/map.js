@@ -21,7 +21,6 @@ window.initializeMap = function() {
     const map = L.map('map').setView([49.4, 15.6], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
     window.map = map;
-    window.mapOffsetLines = []; 
 
     const segmentsMap = {};
     const stationLines = {};
@@ -161,43 +160,14 @@ window.initializeMap = function() {
         let currentOffset = -totalThickness / 2;
 
         linesOnSegment.forEach((segData) => {
-            const baseOffset = currentOffset + (segData.thickness / 2);
-            let zoomFactor = map.getZoom() >= 11 ? 1 : (map.getZoom() === 10 ? 0.5 : (map.getZoom() === 9 ? 0.2 : 0));
-            const offset = baseOffset * zoomFactor;
+            const offset = currentOffset + (segData.thickness / 2);
+            const latlngs = [ window.stationsData[segData.nodeA], window.stationsData[segData.nodeB] ];
 
-            // 1. Zjištění správné geometrie (Křivka z BRouteru vs. Přímka)
-            let latlngs;
-            let trackKey = [segData.nodeA, segData.nodeB].sort().join('|');
-            
-            if (window.tracksData && window.tracksData[trackKey]) {
-                latlngs = JSON.parse(JSON.stringify(window.tracksData[trackKey]));
-                
-                // Matematické ověření směru (aby se offset nepřetočil)
-                let ptA = window.stationsData[segData.nodeA];
-                let ptStart = latlngs[0];
-                let ptEnd = latlngs[latlngs.length - 1];
-                let distToStart = Math.pow(ptStart[0] - ptA[0], 2) + Math.pow(ptStart[1] - ptA[1], 2);
-                let distToEnd = Math.pow(ptEnd[0] - ptA[0], 2) + Math.pow(ptEnd[1] - ptA[1], 2);
-                
-                if (distToEnd < distToStart) {
-                    latlngs.reverse();
-                }
-            } else {
-                latlngs = [ window.stationsData[segData.nodeA], window.stationsData[segData.nodeB] ];
-            }
-
-            // 2. Vykreslení vrstev přes plugin L.polylineOffset
-            const bgLine = L.polylineOffset(latlngs, { color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
-            const mainLine = L.polylineOffset(latlngs, { color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
+            L.polyline(latlngs, { color: '#1a1a1a', weight: segData.thickness + 2.5, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
+            L.polyline(latlngs, { color: segData.color, weight: segData.thickness, opacity: 1, lineCap: 'round', lineJoin: 'round', offset: offset, interactive: false }).addTo(map);
 
             const hitBoxWeight = window.isMobile ? Math.max(segData.thickness + 24, 30) : segData.thickness + 12;
-            const interactionLine = L.polylineOffset(latlngs, { color: 'transparent', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset }).addTo(map);
-
-            // 3. Uložení pro dynamický zoom
-            bgLine.baseOffset = baseOffset;
-            mainLine.baseOffset = baseOffset;
-            interactionLine.baseOffset = baseOffset;
-            window.mapOffsetLines.push(bgLine, mainLine, interactionLine);
+            const interactionLine = L.polyline(latlngs, { color: 'transparent', weight: hitBoxWeight, opacity: 0, lineCap: 'round', lineJoin: 'round', offset: offset }).addTo(map);
 
             const tooltipContentHover = window.generateTooltipHtml(segData, false);
             const tooltipContentClick = window.generateTooltipHtml(segData, true);
@@ -287,15 +257,5 @@ window.initializeMap = function() {
         }, 0);
         return div;
     };
-    map.on('zoomend', function() {
-        if (!window.mapOffsetLines) return;
-        let z = map.getZoom();
-        let factor = z >= 11 ? 1 : (z === 10 ? 0.5 : (z === 9 ? 0.2 : 0));
-        window.mapOffsetLines.forEach(line => {
-            if (typeof line.setOffset === 'function') {
-                line.setOffset(line.baseOffset * factor);
-            }
-        });
-    });
     legend.addTo(map);
 };
